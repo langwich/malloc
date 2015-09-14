@@ -24,10 +24,32 @@ SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 
-void *malloc(size_t size)
+typedef struct _Busy_Header {
+	u_int32_t size; // 31 bits for size and 1 bit for inuse/free
+} Busy_Header;
+
+typedef struct _Free_Header {
+	u_int32_t size;
+	struct _Free_Header *next;
+} Free_Header;
+
+/* Pointer to the first free chunk in heap */
+static Free_Header *freelist;
+
+void freelist_init(u_int32_t max_heap_size)
 {
+	freelist = malloc(max_heap_size + sizeof(u_int32_t));
+	freelist->size = max_heap_size & 0x7FFFFFFF; // mask off upper bit to say free
+	freelist->next = NULL;
 }
 
-void free(void *p)
+void *freelist_malloc(size_t size)
+{
+	u_int32_t n = (u_int32_t)size;
+	// find first chunk that fits size
+
+}
+
+void freelist_free(void *p)
 {
 }
