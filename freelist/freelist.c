@@ -33,13 +33,13 @@ All chunks must start at 4 or 8-byte boundary. I.e., size & ALIGN_MASK should be
 
 #define MINSIZE				sizeof(Free_Header)
 #define WORD_SIZE_IN_BYTES	sizeof(void *)
-#define ALIGN_MASK			(~(WORD_SIZE_IN_BYTES-1))
+#define ALIGN_MASK			(WORD_SIZE_IN_BYTES-1)
 
-/* Pad size n to nearest multiple of word size in bytes */
-#define alignsize(n) \
-	(n < MINSIZE ? \
-	 MINSIZE : \
-	 (n+MINSIZE+WORD_SIZE_IN_BYTES) & ALIGN_MASK)
+/* Pad size n to include header */
+#define padsize(n)			(n+sizeof(Busy_Header) <= MINSIZE ? MINSIZE : \
+ 							 n+sizeof(Busy_Header))
+/* Align n to nearest word size boundary (4 or 8) */
+#define alignsize(n)		(n&ALIGN_MASK==0 ? n : (n+WORD_SIZE_IN_BYTES) & ~ALIGN_MASK)
 
 typedef struct _Busy_Header {
 	uint32_t size; 	  	 // 31 bits for size and 1 bit for inuse/free; includes header data
@@ -71,7 +71,7 @@ void *malloc(size_t size)
 		return NULL; // out of heap
 	}
 	uint32_t n = (uint32_t)size & 0x7FFFFFFF;
-	n = (uint32_t)alignsize(n);
+	n = (uint32_t)alignsize(padsize(n));
 	Free_Header *chunk = nextfree(n);
 	Busy_Header *b = (Busy_Header *)chunk;
 	b->size |= 0x80000000; // get busy! turn on inuse bit at top of size field
