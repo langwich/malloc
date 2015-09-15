@@ -23,6 +23,7 @@ SOFTWARE.
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 /* On my mac laptop Intel Core i7, i get with 32-bit size:
 sizeof(Busy_Header) == 4
@@ -31,18 +32,8 @@ sizeof(Free_Header) == 16. hmm... it word aligns to 64 bits so next is 8 byte bo
 All chunks must start at 4 or 8-byte boundary. I.e., size & ALIGN_MASK should be 0.
 */
 
-#define MINSIZE				sizeof(Free_Header)
-#define WORD_SIZE_IN_BYTES	sizeof(void *)
-#define ALIGN_MASK			(WORD_SIZE_IN_BYTES-1)
-
-/* Pad size n to include header */
-#define padsize(n)			(n+sizeof(Busy_Header) <= MINSIZE ? MINSIZE : \
- 							 n+sizeof(Busy_Header))
-/* Align n to nearest word size boundary (4 or 8) */
-#define alignsize(n)		(n&ALIGN_MASK==0 ? n : (n+WORD_SIZE_IN_BYTES) & ~ALIGN_MASK)
-
 typedef struct _Busy_Header {
-	uint32_t size; 	  	 // 31 bits for size and 1 bit for inuse/free; includes header data
+	uint32_t size;         // 31 bits for size and 1 bit for inuse/free; includes header data
 	unsigned char mem[]; // nothing allocated; just a label to location after size
 } Busy_Header;
 
@@ -51,38 +42,76 @@ typedef struct _Free_Header {
 	struct _Free_Header *next; // lives inside user data area when free but not when in use
 } Free_Header;
 
+const size_t MINSIZE = sizeof(Free_Header);
+const size_t WORD_SIZE_IN_BYTES = sizeof(void *);
+const size_t ALIGN_MASK = WORD_SIZE_IN_BYTES - 1;
+
+/* Pad size n to include header */
+static inline size_t size_with_header(size_t n) {
+	return n + sizeof(Busy_Header) <= MINSIZE ? MINSIZE : n + sizeof(Busy_Header);
+}
+
+/* Align n to nearest word size boundary (4 or 8) */
+static inline size_t align_to_word_boundary(size_t n) {
+	return (n & ALIGN_MASK) == 0 ? n : (n + WORD_SIZE_IN_BYTES) & ~ALIGN_MASK;
+}
+
+/* Convert a user request for n bytes into a size in bytes that has all necessary
+ * header room and is word aligned.
+ */
+static inline size_t request2size(size_t n) {
+	return align_to_word_boundary(size_with_header(n));
+}
+
 /* Pointer to the first free chunk in heap */
 static Free_Header *freelist;
 
+static void *heap;
+
 static Free_Header *nextfree(uint32_t size);
 
-void freelist_init(uint32_t max_heap_size)
-{
+void freelist_init(uint32_t max_heap_size) {
 	printf("sizeof(Busy_Header) == %zu\n", sizeof(Busy_Header));
 	printf("sizeof(Free_Header) == %zu\n", sizeof(Free_Header));
-	freelist = malloc(max_heap_size + sizeof(Busy_Header));
+	/* Wikipedia claims:
+	 * The current Mac OS X implementation of sbrk is an emulation,
+	 * and has a maximum allocation of 4 megabytes.[2] When this limit
+	 * is reached, −1 is returned and the errno is set to ENOMEM.
+	 */
+	heap = sbrk((int)(max_heap_size + sizeof(Busy_Header)));
+	if ( heap==(char *)-1 ) {
+		fprintf(stderr, "Cannot allocate %zu bytes of memory for heap\n",
+				max_heap_size + sizeof(Busy_Header));
+	}
+	else {
+		fprintf(stderr, "sbrk returns %p\n", heap);
+	}
+	freelist = heap;
 	freelist->size = max_heap_size & 0x7FFFFFFF; // mask off upper bit to say free
 	freelist->next = NULL;
 }
 
-void *malloc(size_t size)
-{
-	if ( freelist==NULL ) {
+void freelist_shutdown() {
+	//free(heap);
+}
+
+void *malloc(size_t size) {
+	// TODO: 	if ( heap==NULL ) freelist_init(...)
+	if (freelist == NULL) {
 		return NULL; // out of heap
 	}
-	uint32_t n = (uint32_t)size & 0x7FFFFFFF;
-	n = (uint32_t)alignsize(padsize(n));
+	uint32_t n = (uint32_t) size & 0x7FFFFFFF;
+	n = (uint32_t) align_to_word_boundary(size_with_header(n));
 	Free_Header *chunk = nextfree(n);
-	Busy_Header *b = (Busy_Header *)chunk;
+	Busy_Header *b = (Busy_Header *) chunk;
 	b->size |= 0x80000000; // get busy! turn on inuse bit at top of size field
 	return b;
 }
 
 /* Free chunk p by adding to head of free list */
-void free(void *p)
-{
-	if ( p==NULL ) return;
-	Free_Header *q = (Free_Header *)p;
+void free(void *p) {
+	if (p == NULL) return;
+	Free_Header *q = (Free_Header *) p;
 	q->next = freelist;
 	q->size &= 0x7FFFFFFF; // turn off inuse bit
 	freelist = q;
@@ -93,8 +122,7 @@ void free(void *p)
  *  size arg must be big enough to hold Free_Header and padded to 4 or 8
  *  bytes depending on word size.
  */
-static Free_Header *nextfree(uint32_t size)
-{
+static Free_Header *nextfree(uint32_t size) {
 	Free_Header *p = freelist;
 	Free_Header *prev = NULL;
 	/* Scan until one of:
@@ -103,28 +131,27 @@ static Free_Header *nextfree(uint32_t size)
 	    3. chunk size big enough to split; there is space for size +
 	       another Free_Header (MINSIZE) for the new free chunk.
 	 */
-	while ( p!=NULL && size != p->size && p->size < size+MINSIZE )
-	{
+	while (p != NULL && size != p->size && p->size < size + MINSIZE) {
 		prev = p;
 		p = p->next;
 	}
-	if ( p==NULL ) return p;	// no chunk big enough
+	if (p == NULL) return p;    // no chunk big enough
 
 	Free_Header *nextchunk;
-	if ( p->size==size )		// if exact fit
+	if (p->size == size)        // if exact fit
 	{
 		nextchunk = p->next;
 	}
-	else 						// split p into p', q
+	else                        // split p into p', q
 	{
-		Free_Header *q = (Free_Header *)(((char *)p) + size);
+		Free_Header *q = (Free_Header *) (((char *) p) + size);
 		q->size = size;
 		q->next = p->next;
 		nextchunk = q;
 	}
 
 	// add nextchunk to free list
-	if ( p==freelist )		// head of free list is our chunk
+	if (p == freelist)        // head of free list is our chunk
 	{
 		freelist = nextchunk;
 	}
