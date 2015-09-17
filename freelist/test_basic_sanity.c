@@ -64,6 +64,23 @@ void two_malloc() {
 	assert_addr_equal(freelist1->next, NULL);
 }
 
+void malloc_then_free() {
+	one_malloc();
+	void *p = get_heap_base(); // should be allocated chunk
+	Free_Header *freelist0 = get_freelist();
+	free(p);
+	Free_Header *freelist1 = get_freelist();
+	// allocated chunk is freed and becomes head of new freelist
+	assert_addr_equal(freelist1, p);
+	assert_addr_equal(freelist1, get_heap_base());
+	assert_addr_not_equal(freelist0, freelist1);
+	assert_equal(chunksize(freelist1) + chunksize(freelist1->next), HEAP_SIZE);
+}
+
+void free_NULL() {
+	free(NULL);
+}
+
 void test_core() {
 	void *heap = morecore(HEAP_SIZE);
 	assert_addr_not_equal(heap, NULL);
@@ -76,8 +93,8 @@ void test_init_shutdown() {
 	freelist_shutdown();
 }
 
-static void setup()	{ freelist_init(HEAP_SIZE); }
-static void teardown() { freelist_shutdown(); }
+static void setup()		{ freelist_init(HEAP_SIZE); }
+static void teardown()	{ freelist_shutdown(); }
 
 int main(int argc, char *argv[]) {
 //	long pagesize = sysconf(_SC_PAGE_SIZE); // 4096 on my mac laptop
@@ -97,4 +114,6 @@ int main(int argc, char *argv[]) {
 	test(malloc_2x_word_size);
 	test(one_malloc);
 	test(two_malloc);
+	test(free_NULL);
+	test(malloc_then_free);
 }
