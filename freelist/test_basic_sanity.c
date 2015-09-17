@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "freelist.h"
-#include "../cunit.h"
+#include "cunit.h"
 
 extern void freelist_init(uint32_t max_heap_size);
 extern void freelist_shutdown();
