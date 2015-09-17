@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "freelist.h"
-#include "cunit.h"
+#include "../cunit.h"
 
 extern void freelist_init(uint32_t max_heap_size);
 extern void freelist_shutdown();
@@ -58,9 +58,15 @@ void test_init_shutdown() {
 	freelist_shutdown();
 }
 
+static void setup()	{ freelist_init(HEAP_SIZE); }
+static void teardown() { freelist_shutdown(); }
+
 int main(int argc, char *argv[]) {
 //	long pagesize = sysconf(_SC_PAGE_SIZE); // 4096 on my mac laptop
 //	printf("pagesize == %ld\n", pagesize);
+
+	cunit_setup = setup;
+	cunit_teardown = teardown;
 
 	test_core();
 	test_init_shutdown();
