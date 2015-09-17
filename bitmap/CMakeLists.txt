@@ -2,5 +2,3 @@ cmake_minimum_required(VERSION 3.2)
 project(malloc)
 
 add_library(bitmap bitmap.c)
-
-add_executable(gentables gentables.c)
