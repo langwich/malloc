@@ -1,65 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <setjmp.h>
 #include "freelist.h"
+#include "cunit.h"
 
 extern void freelist_init(uint32_t max_heap_size);
 extern void freelist_shutdown();
 
 const size_t HEAP_SIZE = 2000;
-
-static void setup() 	{ freelist_init(HEAP_SIZE); }
-static void shutdown()	{ freelist_shutdown(); }
-
-// ------ begin test support code ------
-#define test(f)						_test(f, #f)
-#define assert_equal(a,b)			_assert_equal((unsigned long)a,(unsigned long)b,#a,#b,__func__)
-#define assert_not_equal(a,b)		_assert_not_equal((unsigned long)a,(unsigned long)b,#a,#b,__func__)
-#define assert_addr_equal(a,b)		_assert_addr_equal(a,b,#a,#b,__func__)
-#define assert_addr_not_equal(a,b)	_assert_addr_not_equal(a,b,#a,#b,__func__)
-
-static jmp_buf longjmp_env;
-
-void _assert_equal(unsigned long a, unsigned long b, const char as[], const char bs[], const char funcname[]) {
-	if ( a!=b ) {
-		fprintf(stderr, "assertion failure in %s: %s == %s (%lu == %lu)\n", funcname, as, bs, a, b);
-		longjmp(longjmp_env, 1);
-	}
-}
-
-void _assert_not_equal(unsigned long a, unsigned long b, const char as[], const char bs[], const char funcname[]) {
-	if ( a==b ) {
-		fprintf(stderr, "assertion failure in %s: %s != %s (%lu == %lu)\n", funcname, as, bs, a, b);
-		longjmp(longjmp_env, 1);
-	}
-}
-
-void _assert_addr_equal(void *a, void *b, const char as[], const char bs[], const char funcname[]) {
-	if ( a!=b ) {
-		fprintf(stderr, "assertion failure in %s: %s == %s (%p == %p)\n", funcname, as, bs, a, b);
-		longjmp(longjmp_env, 1);
-	}
-}
-
-void _assert_addr_not_equal(void *a, void *b, const char as[], const char bs[], const char funcname[]) {
-	if ( a==b ) {
-		fprintf(stderr, "assertion failure in %s: %s != %s (%p == %p)\n", funcname, as, bs, a, b);
-		longjmp(longjmp_env, 1);
-	}
-}
-
-static void _test(void (*f)(), const char funcname[]) {
-	setup();
-	if ( setjmp(longjmp_env)==0 ) {
-		f();
-		fprintf(stderr, "PASS %s\n", funcname);
-	}
-	else {
-		printf("FAIL %s\n", funcname);
-	}
-	shutdown();
-}
-// ------ end test support code ------
 
 void malloc0() {
 	void *p = malloc(0);
