@@ -29,7 +29,7 @@ void malloc_word_size() {
 void malloc_2x_word_size() {
 	void *p = malloc(2 * sizeof(void *));
 	assert_addr_not_equal(p, NULL);
-	assert_equal(chunksize(p), MIN_CHUNK_SIZE);
+	assert_equal(chunksize(p), 3 * sizeof(void *)); // 2 words + rounded up size field
 }
 
 void one_malloc() {
