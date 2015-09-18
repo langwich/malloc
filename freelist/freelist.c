@@ -34,6 +34,8 @@ typedef struct {
 
 static Free_List_Heap heap;
 
+static int heap_size;
+
 static Free_Header *nextfree(uint32_t size);
 
 void freelist_init(uint32_t max_heap_size) {
@@ -44,7 +46,8 @@ void freelist_init(uint32_t max_heap_size) {
 	printf("BUSY_BIT == %x\n", BUSY_BIT);
 	printf("SIZEMASK == %x\n", SIZEMASK);
 #endif
-	heap.base = morecore(max_heap_size + sizeof(Busy_Header));
+	heap_size = max_heap_size;
+	heap.base = morecore(max_heap_size);
 #ifdef DEBUG
 	if ( heap==NULL ) {
 		fprintf(stderr, "Cannot allocate %zu bytes of memory for heap\n",
@@ -62,9 +65,6 @@ void freelist_init(uint32_t max_heap_size) {
 void freelist_shutdown() {
 	dropcore(heap.base, ((Free_Header *)heap.base)->size);
 }
-
-Free_Header *get_freelist() { return heap.freelist; }
-void *get_heap_base()		{ return heap.base; }
 
 void *malloc(size_t size) {
 	// TODO: 	if ( heap==NULL ) freelist_init(...)
@@ -132,4 +132,34 @@ static Free_Header *nextfree(uint32_t size) {
 		prev->next = nextchunk;
 	}
 	return p;
+}
+
+Free_Header *get_freelist() { return heap.freelist; }
+void *get_heap_base()		{ return heap.base; }
+
+/* Walk heap jumping by size field of chunk header. Make sure everything
+ * adds up.  Return 2 32-bit ints describing allocated vs free chunks,
+ * with allocated in high 32 bits.
+ */
+Heap_Info get_heap_info() {
+	void *heap = get_heap_base();			  // should be allocated chunk
+	void *end_of_heap = heap + heap_size - 1; // last valid address of heap
+	Busy_Header *p = heap;
+	uint32_t busy = 0;
+	uint32_t free = 0;
+	uint32_t busy_size = 0;
+	uint32_t free_size = 0;
+	while ( p>=heap && p<=end_of_heap ) { // stay inbounds, walking heap
+		// track
+		if ( p->size & BUSY_BIT ) {
+			busy++;
+			busy_size += chunksize(p);
+		}
+		else {
+			free++;
+			free_size += chunksize(p);
+		}
+		p = (Busy_Header *)((char *) p + chunksize(p));
+	}
+	return (Heap_Info){heap_size, busy, busy_size, free, free_size};
 }

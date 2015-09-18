@@ -44,6 +44,14 @@ typedef struct _Free_Header {
 	struct _Free_Header *next; // lives inside user data area when free but not when in use
 } Free_Header;
 
+typedef struct {
+	int heap_size;    // total space obtained from OS
+	int busy;
+	int busy_size;
+	int free;
+	int free_size;
+} Heap_Info;
+
 static const size_t MIN_CHUNK_SIZE = sizeof(Free_Header);
 static const size_t WORD_SIZE_IN_BYTES = sizeof(void *);
 static const size_t ALIGN_MASK = WORD_SIZE_IN_BYTES - 1;
@@ -75,3 +83,4 @@ void freelist_init(uint32_t max_heap_size);
 void freelist_shutdown();
 Free_Header *get_freelist();
 void *get_heap_base();
+Heap_Info get_heap_info();
