@@ -29,6 +29,7 @@ SOFTWARE.
 #include "bitset.h"
 
 static void *g_pheap;
+static size_t g_heap_size;
 static bitset g_bset;
 
 /*
@@ -37,8 +38,13 @@ static bitset g_bset;
  */
 void bitmap_init(size_t size) {
 	g_pheap = morecore(size);
+	g_heap_size = size;
 	// the bitset will "borrow" some heap space here for the bit "score-board".
 	bs_init(&g_bset, size / (CHUNK_SIZE_IN_BITS * WORD_SIZE) + 1, g_pheap);
+}
+
+void bitmap_release() {
+	dropcore(g_pheap, g_heap_size);
 }
 
 /*
@@ -69,3 +75,9 @@ void free(void *ptr)
 {
 
 }
+
+#ifdef DEBUG
+void *bitmap_get_heap() {
+	return g_pheap;
+}
+#endif

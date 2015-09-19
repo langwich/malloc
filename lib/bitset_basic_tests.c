@@ -59,12 +59,20 @@ void test_bs_set1_left_boundary() {
 	assert_equal(bs.m_bc[1], 0xFFFF800000000000);
 }
 
-void test_bs_set1_right_boundary() {
+void test_bs_set1_right_boundary_hi() {
 	bitset bs;
 	bs_init(&bs, 2, g_heap);
 	bs_set1(&bs, 23, 63);
 	assert_equal(bs.m_bc[0], 0xC00001FFFFFFFFFF);
 	assert_equal(bs.m_bc[1], 0x0);
+}
+
+void test_bs_set1_right_boundary_lo() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	bs_set1(&bs, 63, 77);
+	assert_equal(bs.m_bc[0], 0xC000000000000001);
+	assert_equal(bs.m_bc[1], 0xFFFC000000000000);
 }
 
 void test_bs_set0() {
@@ -85,13 +93,22 @@ void test_bs_set0_left_boundary() {
 	assert_equal(bs.m_bc[1], 0x0003800000000000);
 }
 
-void test_bs_set0_right_boundary() {
+void test_bs_set0_right_boundary_hi() {
 	bitset bs;
 	bs_init(&bs, 2, g_heap);
 	bs_set1(&bs, 23, 80);
 	bs_set0(&bs, 44, 63);
 	assert_equal(bs.m_bc[0], 0xC00001FFFFF00000);
 	assert_equal(bs.m_bc[1], 0xFFFF800000000000);
+}
+
+void test_bs_set0_right_boundary_lo() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	bs_set1(&bs, 23, 80);
+	bs_set0(&bs, 63, 77);
+	assert_equal(bs.m_bc[0], 0xC00001FFFFFFFFFE);
+	assert_equal(bs.m_bc[1], 0x0003800000000000);
 }
 
 int main(int argc, char *argv[]) {
@@ -101,10 +118,12 @@ int main(int argc, char *argv[]) {
 	test(test_bs_init);
 	test(test_bs_set1);
 	test(test_bs_set1_left_boundary);
-	test(test_bs_set1_right_boundary);
+	test(test_bs_set1_right_boundary_hi);
+	test(test_bs_set1_right_boundary_lo);
 	test(test_bs_set0);
 	test(test_bs_set0_left_boundary);
-	test(test_bs_set0_right_boundary);
+	test(test_bs_set0_right_boundary_hi);
+	test(test_bs_set0_right_boundary_lo);
 
 	return 0;
 }

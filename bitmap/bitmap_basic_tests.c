@@ -48,23 +48,30 @@ SOFTWARE.
 
 #include <cunit.h>
 #include <string.h>
-#include "bitset.h"
+#include "bitmap.h"
 
 #define HEAP_SIZE           4096
 
-static char g_heap[HEAP_SIZE];
-static bitset g_bs;
+static void *g_pheap;
 
 static void setup() {
-	memset(g_heap, 0, HEAP_SIZE);
+	bitmap_init(HEAP_SIZE);
+	g_pheap = bitmap_get_heap();
 }
 
-static void teardown() { }
+static void teardown() {
+	bitmap_release();
+}
+
+void test_bitmap_init() {
+	assert_not_equal(g_pheap, malloc(10));
+}
 
 int main(int argc, char *argv[]) {
 	cunit_setup = setup;
 	cunit_teardown = teardown;
 
+	test(test_bitmap_init);
 
 	return 0;
 }

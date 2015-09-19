@@ -68,11 +68,12 @@ int bs_nrun(bitset *bs, size_t n) {
  */
 int bs_set1(bitset *bs, size_t lo, size_t hi) {
 	size_t lo_chk =  ROUND_UP(lo) / (CHUNK_SIZE_IN_BITS);
+	// TODO: What if the heap size is really small?
 	size_t hi_chk =  ROUND_DOWN(hi) / (CHUNK_SIZE_IN_BITS);
 	for (size_t i = lo_chk; i < hi_chk; ++i) {
 		bs->m_bc[i] |= BC_ONE;
 	}
-	bs->m_bc[lo_chk - 1] |= right_masks[lo_chk * CHUNK_SIZE_IN_BITS - lo];
+	bs->m_bc[lo_chk == 0 ? lo_chk : lo_chk - 1] |= right_masks[lo_chk * CHUNK_SIZE_IN_BITS - lo];
 	bs->m_bc[hi_chk] |= left_masks[hi - hi_chk * CHUNK_SIZE_IN_BITS + 1];
 	return 0;
 }
@@ -86,7 +87,7 @@ int bs_set0(bitset *bs, size_t lo, size_t hi) {
 	for (size_t i = lo_chk; i < hi_chk; ++i) {
 		bs->m_bc[i] &= 0;
 	}
-	bs->m_bc[lo_chk - 1] &= ~right_masks[lo_chk * CHUNK_SIZE_IN_BITS - lo];
+	bs->m_bc[lo_chk == 0 ? lo_chk : lo_chk - 1] &= ~right_masks[lo_chk * CHUNK_SIZE_IN_BITS - lo];
 	bs->m_bc[hi_chk] &= ~left_masks[hi - hi_chk * CHUNK_SIZE_IN_BITS + 1];
 	return 0;
 }

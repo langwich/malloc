@@ -31,6 +31,8 @@ SOFTWARE.
 void bitmap_init(size_t size);
 void bitmap_release();
 
+void *bitmap_get_heap();
+
 void *malloc(size_t size);
 void free(void *);
 
