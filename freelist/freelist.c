@@ -137,10 +137,7 @@ static Free_Header *nextfree(uint32_t size) {
 Free_Header *get_freelist() { return heap.freelist; }
 void *get_heap_base()		{ return heap.base; }
 
-/* Walk heap jumping by size field of chunk header. Make sure everything
- * adds up.  Return 2 32-bit ints describing allocated vs free chunks,
- * with allocated in high 32 bits.
- */
+/* Walk heap jumping by size field of chunk header. Return an info record. */
 Heap_Info get_heap_info() {
 	void *heap = get_heap_base();			  // should be allocated chunk
 	void *end_of_heap = heap + heap_size - 1; // last valid address of heap
