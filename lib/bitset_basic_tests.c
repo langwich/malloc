@@ -22,48 +22,51 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <stddef.h>
-#include <morecore.h>
-
-#include "bitmap.h"
+#include <cunit.h>
+#include <string.h>
 #include "bitset.h"
 
-static void *g_pheap;
-static bitset g_bset;
+#define HEAP_SIZE           4096
 
-/*
- * Current implementation is really straightforward. We don't
- * dynamically adjust the arena size.
- */
-void bitmap_init(size_t size) {
-	g_pheap = morecore(size);
-	// the bitset will "borrow" some heap space here for the bit "score-board".
-	bs_init(&g_bset, size / (CHUNK_SIZE * WORD_SIZE * BIT_NUM) + 1, g_pheap);
+static char g_heap[HEAP_SIZE];
+
+static void setup() {
+	memset(g_heap, 0, HEAP_SIZE);
 }
 
-/*
- * This function is used to return the start address of required
- * amount of heap/mapped memory.
- * The size is round up to the word boundary.
- * NULL is returned when there is not enough memory.
- *
- * Algorithm:
- * During the scan, the program behave in two modes: cross mode
- * and non-cross mode. During cross mode, we are looking for a
- * run of n consecutive 0s cross the word boundary. And in
- * non-cross mode we expect to get our result within the current
- * word.
- */
-void *malloc(size_t size)
-{
-	return NULL;
+static void teardown() { }
+
+void test_bs_init() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	assert_equal(bs.m_bc[0], 0ULL);
+	assert_equal(bs.m_bc[1], 0ULL);
 }
 
-/*
- * This function returns the memory to arena and unmarks the
- * related bits in bitset.
- */
-void free(void *ptr)
-{
+void test_bs_set1() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	bs_set1(&bs, 23, 80);
+	assert_equal(bs.m_bc[0], 0x000001FFFFFFFFFF);
+	assert_equal(bs.m_bc[1], 0xFFFF800000000000);
+}
 
+void test_bs_set0() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	bs_set1(&bs, 23, 80);
+	bs_set0(&bs, 55, 77);
+	assert_equal(bs.m_bc[0], 0x000001FFFFFFFE00);
+	assert_equal(bs.m_bc[1], 0x0003800000000000);
+}
+
+int main(int argc, char *argv[]) {
+	cunit_setup = setup;
+	cunit_teardown = teardown;
+
+	test(test_bs_init);
+	test(test_bs_set1);
+	test(test_bs_set0);
+
+	return 0;
 }

@@ -22,48 +22,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#ifndef MALLOC_BITMAP_H
+#define MALLOC_BITMAP_H
+
 #include <stddef.h>
-#include <morecore.h>
 
-#include "bitmap.h"
-#include "bitset.h"
+void bitmap_init(size_t size);
+void bitmap_release();
 
-static void *g_pheap;
-static bitset g_bset;
+void *malloc(size_t size);
+void free(void *);
 
-/*
- * Current implementation is really straightforward. We don't
- * dynamically adjust the arena size.
- */
-void bitmap_init(size_t size) {
-	g_pheap = morecore(size);
-	// the bitset will "borrow" some heap space here for the bit "score-board".
-	bs_init(&g_bset, size / (CHUNK_SIZE * WORD_SIZE * BIT_NUM) + 1, g_pheap);
-}
-
-/*
- * This function is used to return the start address of required
- * amount of heap/mapped memory.
- * The size is round up to the word boundary.
- * NULL is returned when there is not enough memory.
- *
- * Algorithm:
- * During the scan, the program behave in two modes: cross mode
- * and non-cross mode. During cross mode, we are looking for a
- * run of n consecutive 0s cross the word boundary. And in
- * non-cross mode we expect to get our result within the current
- * word.
- */
-void *malloc(size_t size)
-{
-	return NULL;
-}
-
-/*
- * This function returns the memory to arena and unmarks the
- * related bits in bitset.
- */
-void free(void *ptr)
-{
-
-}
+#endif //MALLOC_BITMAP_H
