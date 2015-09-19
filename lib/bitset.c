@@ -24,6 +24,7 @@ SOFTWARE.
 
 #include <stddef.h>
 #include <unistd.h>
+#include <stdio.h>
 #include "bitset.h"
 
 static void init_lup();
@@ -41,6 +42,9 @@ void bs_init(bitset *bs, size_t nchks, void *pheap) {
 
 	bs->m_nbc = nchks;
 	bs->m_bc = pheap;
+	// set the first few bits to 1.
+	// Those bits count for the space consumed by the bit score board.
+	bs_set1(bs, 0, nchks * CHUNK_SIZE / WORD_SIZE - 1);
 }
 /*
  * Dump the bit chunk to fd. Mainly used for debug/test.
@@ -52,9 +56,10 @@ void bs_dump(BITCHUNK bc, int fd) {
 	write(fd, "\n", 1);
 }
 /*
- * Returns the first n-run of 0s in the bitset.
+ * Returns the index of the first n-run of 0s in the bitset.
+ * The index is 0-based.
  */
-int bs_nrun(bitset *bs, int n) {
+int bs_nrun(bitset *bs, size_t n) {
 	return 0;
 }
 /*
@@ -62,8 +67,8 @@ int bs_nrun(bitset *bs, int n) {
  * lo and hi are bit indices and are *0-BASED*
  */
 int bs_set1(bitset *bs, size_t lo, size_t hi) {
-	size_t lo_chk =  lo / (CHUNK_SIZE_IN_BITS) + 1;
-	size_t hi_chk =  hi / (CHUNK_SIZE_IN_BITS);
+	size_t lo_chk =  ROUND_UP(lo) / (CHUNK_SIZE_IN_BITS);
+	size_t hi_chk =  ROUND_DOWN(hi) / (CHUNK_SIZE_IN_BITS);
 	for (size_t i = lo_chk; i < hi_chk; ++i) {
 		bs->m_bc[i] |= BC_ONE;
 	}
@@ -76,8 +81,8 @@ int bs_set1(bitset *bs, size_t lo, size_t hi) {
  * lo and hi are bit indices and are *0-BASED*
  */
 int bs_set0(bitset *bs, size_t lo, size_t hi) {
-	size_t lo_chk =  lo / (CHUNK_SIZE_IN_BITS) + 1;
-	size_t hi_chk =  hi / (CHUNK_SIZE_IN_BITS);
+	size_t lo_chk =  ROUND_UP(lo) / (CHUNK_SIZE_IN_BITS);
+	size_t hi_chk =  ROUND_DOWN(hi) / (CHUNK_SIZE_IN_BITS);
 	for (size_t i = lo_chk; i < hi_chk; ++i) {
 		bs->m_bc[i] &= 0;
 	}

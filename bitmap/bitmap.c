@@ -38,7 +38,7 @@ static bitset g_bset;
 void bitmap_init(size_t size) {
 	g_pheap = morecore(size);
 	// the bitset will "borrow" some heap space here for the bit "score-board".
-	bs_init(&g_bset, size / (CHUNK_SIZE * WORD_SIZE * BIT_NUM) + 1, g_pheap);
+	bs_init(&g_bset, size / (CHUNK_SIZE_IN_BITS * WORD_SIZE) + 1, g_pheap);
 }
 
 /*
@@ -56,7 +56,9 @@ void bitmap_init(size_t size) {
  */
 void *malloc(size_t size)
 {
-	return NULL;
+	size_t n = ALIGN_WORD_BOUNDARY(size);
+	int run_index = bs_nrun(&g_bset, n);
+	return g_pheap + run_index;
 }
 
 /*
