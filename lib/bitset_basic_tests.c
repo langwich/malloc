@@ -39,7 +39,7 @@ static void teardown() { }
 void test_bs_init() {
 	bitset bs;
 	bs_init(&bs, 2, g_heap);
-	assert_equal(bs.m_bc[0], 0ULL);
+	assert_equal(bs.m_bc[0], 0xC000000000000000);
 	assert_equal(bs.m_bc[1], 0ULL);
 }
 
@@ -47,8 +47,32 @@ void test_bs_set1() {
 	bitset bs;
 	bs_init(&bs, 2, g_heap);
 	bs_set1(&bs, 23, 80);
-	assert_equal(bs.m_bc[0], 0x000001FFFFFFFFFF);
+	assert_equal(bs.m_bc[0], 0xC00001FFFFFFFFFF);
 	assert_equal(bs.m_bc[1], 0xFFFF800000000000);
+}
+
+void test_bs_set1_left_boundary() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	bs_set1(&bs, 64, 80);
+	assert_equal(bs.m_bc[0], 0xC000000000000000);
+	assert_equal(bs.m_bc[1], 0xFFFF800000000000);
+}
+
+void test_bs_set1_right_boundary_hi() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	bs_set1(&bs, 23, 63);
+	assert_equal(bs.m_bc[0], 0xC00001FFFFFFFFFF);
+	assert_equal(bs.m_bc[1], 0x0);
+}
+
+void test_bs_set1_right_boundary_lo() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	bs_set1(&bs, 63, 77);
+	assert_equal(bs.m_bc[0], 0xC000000000000001);
+	assert_equal(bs.m_bc[1], 0xFFFC000000000000);
 }
 
 void test_bs_set0() {
@@ -56,7 +80,34 @@ void test_bs_set0() {
 	bs_init(&bs, 2, g_heap);
 	bs_set1(&bs, 23, 80);
 	bs_set0(&bs, 55, 77);
-	assert_equal(bs.m_bc[0], 0x000001FFFFFFFE00);
+	assert_equal(bs.m_bc[0], 0xC00001FFFFFFFE00);
+	assert_equal(bs.m_bc[1], 0x0003800000000000);
+}
+
+void test_bs_set0_left_boundary() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	bs_set1(&bs, 23, 80);
+	bs_set0(&bs, 64, 77);
+	assert_equal(bs.m_bc[0], 0xC00001FFFFFFFFFF);
+	assert_equal(bs.m_bc[1], 0x0003800000000000);
+}
+
+void test_bs_set0_right_boundary_hi() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	bs_set1(&bs, 23, 80);
+	bs_set0(&bs, 44, 63);
+	assert_equal(bs.m_bc[0], 0xC00001FFFFF00000);
+	assert_equal(bs.m_bc[1], 0xFFFF800000000000);
+}
+
+void test_bs_set0_right_boundary_lo() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	bs_set1(&bs, 23, 80);
+	bs_set0(&bs, 63, 77);
+	assert_equal(bs.m_bc[0], 0xC00001FFFFFFFFFE);
 	assert_equal(bs.m_bc[1], 0x0003800000000000);
 }
 
@@ -66,7 +117,13 @@ int main(int argc, char *argv[]) {
 
 	test(test_bs_init);
 	test(test_bs_set1);
+	test(test_bs_set1_left_boundary);
+	test(test_bs_set1_right_boundary_hi);
+	test(test_bs_set1_right_boundary_lo);
 	test(test_bs_set0);
+	test(test_bs_set0_left_boundary);
+	test(test_bs_set0_right_boundary_hi);
+	test(test_bs_set0_right_boundary_lo);
 
 	return 0;
 }

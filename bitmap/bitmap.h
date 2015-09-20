@@ -26,11 +26,15 @@ SOFTWARE.
 #define MALLOC_BITMAP_H
 
 #include <stddef.h>
+#include <bitset.h>
 
 void bitmap_init(size_t size);
 void bitmap_release();
 
+void *bitmap_get_heap();
+
 void *malloc(size_t size);
 void free(void *);
+
 
 #endif //MALLOC_BITMAP_H

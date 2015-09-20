@@ -1,10 +1,9 @@
 cmake_minimum_required(VERSION 3.2)
 project(malloc)
 
-add_library(freelist freelist.c)
+set(MODULE_NAME freelist)
 
-add_executable(test_basic_sanity test_basic_sanity.c)
-add_executable(test_size_adjust test_size_adjust.c)
+BUILD_MODULE(${MODULE_NAME} OFF)
 
-target_link_libraries(test_basic_sanity freelist cunit malloc)
-target_link_libraries(test_size_adjust freelist cunit malloc)
+ADD_TEST_TARGET(test_basic_sanity ${MODULE_NAME})
+ADD_TEST_TARGET(test_size_adjust ${MODULE_NAME})

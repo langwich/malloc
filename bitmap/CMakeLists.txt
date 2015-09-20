@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 3.2)
 project(malloc)
 
-add_library(bitmap bitmap.c)
+set(MODULE_NAME bitmap)
+
+BUILD_MODULE(${MODULE_NAME} ON)
+
+ADD_TEST_TARGET(bitmap_basic_tests ${MODULE_NAME})

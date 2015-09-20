@@ -30,13 +30,20 @@ SOFTWARE.
 typedef unsigned long long      BITCHUNK;
 typedef unsigned char           U1;
 
-
-#define WORD_SIZE               (sizeof(void *))
-#define CHUNK_SIZE              (sizeof(BITCHUNK))
 #define BIT_NUM                 8
+#define WORD_SIZE               (sizeof(void *))
+#define ALIGN_MASK              (WORD_SIZE - 1)
+#define CHUNK_SIZE              (sizeof(BITCHUNK))
+#define CHUNK_SIZE_IN_BITS      (CHUNK_SIZE * BIT_NUM)
+#define CHUNK_ALIGN_MASK        (CHUNK_SIZE_IN_BITS - 1)
 #define BC_ONE                  0xFFFFFFFFFFFFFFFF
 #define BC_LEFTMOST_MASK        0x8000000000000000
-#define CHUNK_SIZE_IN_BITS      (CHUNK_SIZE * BIT_NUM)
+
+#define ROUND_UP(n)             ((n & CHUNK_ALIGN_MASK) == 0 ? n : (n + CHUNK_SIZE_IN_BITS) & ~CHUNK_ALIGN_MASK)
+#define ROUND_DOWN(n)           ((((n + 1) & CHUNK_ALIGN_MASK) == 0) ? (n + 1) : (n & ~CHUNK_ALIGN_MASK))
+
+#define ALIGN_WORD_BOUNDARY(n)  ((n & ALIGN_MASK) == 0 ? n : (n + WORD_SIZE) & ~ALIGN_MASK)
+
 /*
  * This table returns the bit index of n consecutive
  * zeros in a byte of the bitmap, if this position
@@ -66,7 +73,7 @@ typedef struct {
 } bitset;
 
 void bs_init(bitset *, size_t, void *);
-int bs_nrun(bitset *, int);
+int bs_nrun(bitset *, size_t);
 int bs_set1(bitset *, size_t, size_t);
 int bs_set0(bitset *, size_t, size_t);
 
