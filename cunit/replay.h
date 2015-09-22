@@ -1,4 +1,4 @@
-"""
+/*
 The MIT License (MIT)
 
 Copyright (c) 2015 Terence Parr, Hanzhou Shi, Shuai Yuan, Yuanyuan Zhang
@@ -20,37 +20,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-"""
+*/
 
-# simple program to convert addresses like 0x7fc49a404b80 to unique index from 0
-# reads in stuff like:
-#
-#   malloc 56 -> 0x7fc49a500c00
-#   free 0x7fc49a500c00
-#
-# and emits
-#
-#   malloc 56 -> 0
-#   free 0
-#
-
-import sys
-
-addr2index = {}
-next = 0
-
-for line in sys.stdin:
-    words = line.strip().split(" ")
-    if len(words)==0: break
-    if words[0] == "malloc":
-        addr = words[3]
-        if addr not in addr2index:
-            addr2index[addr] = str(next)
-            next += 1
-        words[3] = addr2index[addr]
-        print " ".join(words)
-    else: # must be free
-        addr = words[1]
-        if addr in addr2index: # ignore frees of unmatched allocs
-            words[1] = addr2index[addr]
-            print " ".join(words)
+int replay_malloc(char *filename);
