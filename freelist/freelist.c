@@ -82,7 +82,17 @@ void *malloc(size_t size) {
 /* Free chunk p by adding to head of free list */
 void free(void *p) {
 	if (p == NULL) return;
+	void *start_of_heap = get_heap_base();
+	void *end_of_heap = start_of_heap + heap_size - 1; // last valid address of heap
+	if ( p<start_of_heap || p>end_of_heap ) {
+		fprintf(stderr, "free of non-heap address %p\n", p);
+		return;
+	}
 	Free_Header *q = (Free_Header *) p;
+	if ( !(q->size & BUSY_BIT) ) { // stale pointer? If already free'd better not try to free it again
+		fprintf(stderr, "free of stale pointer %p\n", p);
+		return;
+	}
 	q->next = heap.freelist;
 	q->size &= SIZEMASK; // turn off busy bit
 	heap.freelist = q;
@@ -109,12 +119,10 @@ static Free_Header *nextfree(uint32_t size) {
 	if (p == NULL) return p;    // no chunk big enough
 
 	Free_Header *nextchunk;
-	if (p->size == size)        // if exact fit
-	{
+	if (p->size == size) {      // if exact fit
 		nextchunk = p->next;
 	}
-	else                        // split p into p', q
-	{
+	else {                      // split p into p', q
 		Free_Header *q = (Free_Header *) (((char *) p) + size);
 		q->size = p->size - size; // q is remainder of memory after allocating p'
 		q->next = p->next;
@@ -124,13 +132,13 @@ static Free_Header *nextfree(uint32_t size) {
 	p->size = size;
 
 	// add nextchunk to free list
-	if (p == heap.freelist)        // head of free list is our chunk
-	{
+	if (p == heap.freelist) {       // head of free list is our chunk
 		heap.freelist = nextchunk;
 	}
 	else {
 		prev->next = nextchunk;
 	}
+
 	return p;
 }
 

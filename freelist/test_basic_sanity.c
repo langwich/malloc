@@ -132,6 +132,13 @@ void free_NULL() {
 	free(NULL); // don't crash
 }
 
+void free_stale() {
+	malloc_then_free();
+	Free_Header *freelist = get_freelist();
+	free(freelist); // NOT ok; freeing something already free'd
+	assert_addr_not_equal(freelist, freelist->next); // make sure we didn't create cycle by freeing twice
+}
+
 void test_core() {
 	void *heap = morecore(HEAP_SIZE);
 	assert_addr_not_equal(heap, NULL);
@@ -163,5 +170,6 @@ int main(int argc, char *argv[]) {
 	test(one_malloc);
 	test(two_malloc);
 	test(free_NULL);
+	test(free_stale);
 	test(malloc_then_free);
 }
