@@ -132,6 +132,21 @@ void free_NULL() {
 	free(NULL); // don't crash
 }
 
+char buf[] = "hi"; // used by free_random
+
+void free_random() {
+	void *heap0 = get_heap_base();
+	Free_Header *freelist0 = get_freelist();
+
+	free(buf); // try to free a valid but non-heap data address
+
+	void *heap1 = get_heap_base();
+	Free_Header *freelist1 = get_freelist();
+
+	assert_addr_equal(heap1, heap0);
+	assert_addr_equal(freelist1, freelist0);
+}
+
 void free_stale() {
 	malloc_then_free();
 	Free_Header *freelist = get_freelist();
@@ -170,6 +185,7 @@ int main(int argc, char *argv[]) {
 	test(one_malloc);
 	test(two_malloc);
 	test(free_NULL);
+	test(free_random);
 	test(free_stale);
 	test(malloc_then_free);
 }
