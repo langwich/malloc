@@ -23,6 +23,7 @@ SOFTWARE.
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* Read in stuff like:
  *
@@ -50,6 +51,7 @@ int replay_malloc(char *filename) {
 	}
 	char line[100];
 	while ( fgets(line, sizeof(line), f) ) {
+		line[strlen(line)-1] = '\0';
 		printf("%d: %s", i, line);
 		i++;
 		if ( line[0]=='m' ) { // malloc size -> addrindex
@@ -61,12 +63,21 @@ int replay_malloc(char *filename) {
 				return 1;
 			}
 			void *p = malloc((size_t)size);
+			printf(" (%p)\n", p);
 			index2addr[index] = p;
 		}
 		else { // must be a free
 			int index;
 			sscanf(line, "free %d\n", &index);
-			free(index2addr[index]);
+			void *p = index2addr[index];
+			printf(" (%p)\n", p);
+			free(p);
+			// I'm commenting out next line to allow simulation of erroneous streams such as:
+			// free 99
+			// free 99
+			// free 99
+			// i.e., free() should be able to detect free() of stale data
+//			index2addr[index] = NULL;  // prevents extra free of this address from messing us up.
 		}
 	}
 	fclose(f);
