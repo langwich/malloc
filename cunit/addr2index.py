@@ -54,3 +54,5 @@ for line in sys.stdin:
         if addr in addr2index: # ignore frees of unmatched allocs
             words[1] = addr2index[addr]
             print " ".join(words)
+        else:
+            print "#", " ".join(words) # put a comment symbol in front to indicate not to exec but keep in output

@@ -52,6 +52,7 @@ int replay_malloc(char *filename) {
 	char line[100];
 	while ( fgets(line, sizeof(line), f) ) {
 		line[strlen(line)-1] = '\0';
+		if ( line[0]=='#' ) continue; // ignore comment lines starting with '#'
 		printf("%d: %s", i, line);
 		i++;
 		if ( line[0]=='m' ) { // malloc size -> addrindex
