@@ -85,12 +85,16 @@ void free(void *p) {
 	void *start_of_heap = get_heap_base();
 	void *end_of_heap = start_of_heap + heap_size - 1; // last valid address of heap
 	if ( p<start_of_heap || p>end_of_heap ) {
+#ifdef DEBUG
 		fprintf(stderr, "free of non-heap address %p\n", p);
+#endif
 		return;
 	}
 	Free_Header *q = (Free_Header *) p;
 	if ( !(q->size & BUSY_BIT) ) { // stale pointer? If already free'd better not try to free it again
+#ifdef DEBUG
 		fprintf(stderr, "free of stale pointer %p\n", p);
+#endif
 		return;
 	}
 	q->next = heap.freelist;
