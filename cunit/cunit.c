@@ -64,7 +64,7 @@ void cunit_test(void (*f)(), const char funcname[]) {
 		fprintf(stderr, "PASS %s\n", funcname);
 	}
 	else {
-		printf("FAIL %s\n", funcname);
+		fprintf(stderr, "FAIL %s\n", funcname);
 	}
 	if ( cunit_teardown!=NULL ) (*cunit_teardown)();
 }
