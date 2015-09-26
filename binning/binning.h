@@ -22,12 +22,56 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef MALLOC_MERGING_H
-#define MALLOC_MERGING_H
+#ifndef MALLOC_BINNING_H
+#define MALLOC_BINNING_H
 
-#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "morecore.h"
 
+typedef struct _Busy_Header {
+	uint32_t size;         // 31 bits for size and 1 bit for inuse/free; includes header data
+	unsigned char mem[]; // nothing allocated; just a label to location after size
+} Busy_Header;
+
+typedef struct _Free_Header {
+	uint32_t size;
+	struct _Free_Header *next;
+} Free_Header;
+
+typedef struct {
+	int heap_size;    // total space obtained from OS
+	int busy;
+	int busy_size;
+	int free;
+	int free_size;
+} Heap_Info;
+
+static const size_t MIN_CHUNK_SIZE = sizeof(Free_Header);
+static const size_t WORD_SIZE_IN_BYTES = sizeof(void *);
+static const size_t ALIGN_MASK = WORD_SIZE_IN_BYTES - 1;
+static const size_t DEFAULT_MAX_HEAP_SIZE = 4096;
+static const size_t BIN_SIZE = 1024;
+
+static inline size_t size_with_header(size_t n) {
+	return n + sizeof(Busy_Header) <= MIN_CHUNK_SIZE ? MIN_CHUNK_SIZE : n + sizeof(Busy_Header);
+}
+
+static inline size_t align_to_word_boundary(size_t n) {
+	return (n & ALIGN_MASK) == 0 ? n : (n + WORD_SIZE_IN_BYTES) & ~ALIGN_MASK;
+}
+
+static inline size_t request2size(size_t n) {
+	return align_to_word_boundary(size_with_header(n));
+}
+
+static inline uint32_t chunksize(void *p) { return ((Busy_Header *)p)->size & SIZEMASK; }
+
+void heap_init();
 void *malloc(size_t);
 void free(void *);
+void freelist_shutdown();
+Heap_Info get_heap_info();
+Free_Header *get_freelist();
 
-#endif //MALLOC_MERGING_H
+#endif //MALLOC_BINNING_H
