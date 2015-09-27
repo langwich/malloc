@@ -50,8 +50,11 @@ typedef struct {
 static const size_t MIN_CHUNK_SIZE = sizeof(Free_Header);
 static const size_t WORD_SIZE_IN_BYTES = sizeof(void *);
 static const size_t ALIGN_MASK = WORD_SIZE_IN_BYTES - 1;
-static const size_t DEFAULT_MAX_HEAP_SIZE = 4096;
-static const size_t BIN_SIZE = 1024;
+static const uint32_t DEFAULT_MAX_HEAP_SIZE = 4096;
+static const uint32_t BIN_SIZE = 1024;
+
+static const uint32_t BUSY_BIT = ((uint32_t)1) << 31; // the high bit (normally the sign bit)
+static const uint32_t SIZEMASK = ~BUSY_BIT;
 
 static inline size_t size_with_header(size_t n) {
 	return n + sizeof(Busy_Header) <= MIN_CHUNK_SIZE ? MIN_CHUNK_SIZE : n + sizeof(Busy_Header);
@@ -70,8 +73,10 @@ static inline uint32_t chunksize(void *p) { return ((Busy_Header *)p)->size & SI
 void heap_init();
 void *malloc(size_t);
 void free(void *);
-void freelist_shutdown();
+void heap_shutdown();
 Heap_Info get_heap_info();
-Free_Header *get_freelist();
+Free_Header *get_heap_freelist();
+Free_Header *get_bin_freelist(uint32_t);
+void *get_heap_base();
 
 #endif //MALLOC_BINNING_H

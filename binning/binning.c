@@ -23,21 +23,18 @@ SOFTWARE.
 */
 
 #include "binning.h"
-#include <stddef.h>
 
-typedef struct {
-	Free_Header *freelist; // Pointer to the first free chunk in heap
-	void *base;			   // point to data obtained from OS
-} Free_List_Heap;
+static void * heap;
+Free_Header *freelist;
 
-
-/* 1204 bins, each bin has a freelist with fix-sized(size = index of bin) free chucks*/
+/* 1204 bins, each bin has a freelist with fix-sized(size = index of bin) free chunks*/
 Free_Header * bin[BIN_SIZE];
 
 /*except bins, we have another freelist to handle the malloc and free request which size over 1024*/
-static Free_List_Heap heap;
+//static Free_List_Heap heap;
 
-static Free_Header *nextfree(uint32_t size); //get chuck from free list;
+static Free_Header *nextfree(uint32_t size); //get chunk from free list;
+static Free_Header *next_small_free(uint32_t size);
 
 void heap_init() {
 #ifdef DEBUG
@@ -47,62 +44,69 @@ void heap_init() {
 	printf("BUSY_BIT == %x\n", BUSY_BIT);
 	printf("SIZEMASK == %x\n", SIZEMASK);
 #endif
-	heap.base = morecore(DEFAULT_MAX_HEAP_SIZE);
+	heap = morecore(DEFAULT_MAX_HEAP_SIZE);
 #ifdef DEBUG
-	if ( heap==NULL ) {
-		fprintf(stderr, "Cannot allocate %zu bytes of memory for heap\n",
-				max_heap_size + sizeof(Busy_Header));
+	if ( heap == NULL ) {
+		fprintf(stderr, "Cannot allocate %d bytes of memory for heap\n",DEFAULT_MAX_HEAP_SIZE);
 	}
 	else {
 		fprintf(stderr, "morecore returns %p\n", heap);
 	}
 #endif
-	heap.freelist = heap.base;
-	heap.freelist->size = DEFAULT_MAX_HEAP_SIZE & SIZEMASK; // mask off upper bit to say free
-	heap.freelist->next = NULL;
+	freelist = (Free_Header *)heap;
+	freelist->size = DEFAULT_MAX_HEAP_SIZE & SIZEMASK; // mask off upper bit to say free
+	freelist->next = NULL;
 }
 
 /*
 * each malloc request first check size, if  size >1024 ,get from free list and return
 * else check if have fitted size in bin[size-1],if yes, return
 * if not, check if can get from free list,if yes, return (may be need split)
-* if not, check if there exist next free chuck in bin[biggersize],if yes, split and return
+* if not, check if there exist next free chunk in bin[biggersize],if yes, split and return
 * if not, return NULL, out of heap error
 */
 void *malloc(size_t size) {
+
 	uint32_t n = (uint32_t) size & SIZEMASK;
+	printf("%d",n);
 	size_t actual_size = request2size(n);
+	printf("%d",actual_size);
 	Busy_Header *b;
 	if (actual_size >BIN_SIZE) {
 		Free_Header *q = nextfree(actual_size);
-		b = (Busy_Header *)q;
-		b->size |= BUSY_BIT;
-		if (b == NULL) {
+		if (q == NULL) {
+#ifdef DEBUG
 			printf("out of heap");
+#endif
 			return NULL;
 		}
+		b = (Busy_Header *)q;
+		b->size |= BUSY_BIT;
 	}
 	else {
 		Free_Header *q = next_small_free(actual_size);
-		b = (Busy_Header *)q;
-		b->size |= BUSY_BIT;
-		if (b == NULL) {
+		if (q == NULL) {
+#ifdef DEBUG
 			printf("out of heap");
+#endif
 			return NULL;
 		}
+		b = (Busy_Header *)q;
+		b->size |= BUSY_BIT;
 	}
+	printf("%d",b->size);
 	return b;
 }
 
 /*
 * for each free request
-* if chuck size over 1024, free it and add to free list
-* other wise add to bin[chuck_size-1]
+* if chunk size over 1024, free it and add to free list
+* other wise add to bin[chunk_size-1]
 */
 void free(void *p) {
 	if (p == NULL) return;
 	void *start_of_heap = get_heap_base();
-	void *end_of_heap = start_of_heap + heap_size - 1; // last valid address of heap
+	void *end_of_heap = start_of_heap + DEFAULT_MAX_HEAP_SIZE - 1; // last valid address of heap
 	if ( p<start_of_heap || p>end_of_heap ) {
 #ifdef DEBUG
 		fprintf(stderr, "free of non-heap address %p\n", p);
@@ -116,27 +120,27 @@ void free(void *p) {
 #endif
 		return;
 	}
-	if (q->size < BIN_SIZE){
-		q->next = bin[q->size-1];
-		q->size &= SIZEMASK;
-		bin[q->size-1] = q;
+	uint32_t size = q->size & SIZEMASK;
+
+	if (size <= BIN_SIZE){
+		q->next = bin[size-1];
+		q->size = size;
+		bin[size-1] = q;
 	}
 	else {
-		q->next = heap.freelist;
-		q->size &= SIZEMASK; // turn off busy bit
-		heap.freelist = q;
+		q->next = freelist;
+		q->size = size; // turn off busy bit
+		freelist = q;
 	}
 }
 
 static Free_Header *next_small_free(uint32_t size){
-
 	if (bin[size-1] != NULL) {
-		Free_Header *p = bin[size-1];
-		Free_Header *chuck = p;
-		p = p->next;
-		return chuck;
+		Free_Header *chunk = bin[size-1];
+		bin[size-1] = bin[size-1]->next;
+		return chunk;
 	}
-	else if (heap.freelist != NULL){
+	else if (freelist != NULL){
 		return nextfree(size);
 	}
 	else {
@@ -145,18 +149,18 @@ static Free_Header *next_small_free(uint32_t size){
 			index ++;
 		}
 		if(index == BIN_SIZE) {
-			return NULL
+			return NULL;
 		}
 		Free_Header *remain;
 		Free_Header *p = bin[index-1];
 		Free_Header *chunk = (Free_Header *) (((char *) p) + size);
 		remain = p;
-		p = p->next;
+		bin[index-1] = bin[index-1]->next;
 		remain->size = index - size;
 		Free_Header *prev = bin[remain->size-1];
 
 		if (prev == NULL) {
-			bin[remain->size-1] = remain->size;
+			bin[remain->size-1] = remain;
 		}
 		else {
 			remain->next = prev;
@@ -165,8 +169,9 @@ static Free_Header *next_small_free(uint32_t size){
 		return chunk;
 	}
 }
+
 static Free_Header *nextfree(uint32_t size) {
-	Free_Header *p = heap.freelist;
+	Free_Header *p = freelist;
 	Free_Header *prev = NULL;
 	while (p != NULL && size != p->size && p->size < size + MIN_CHUNK_SIZE) {
 		prev = p;
@@ -188,8 +193,8 @@ static Free_Header *nextfree(uint32_t size) {
 	p->size = size;
 
 	// add nextchunk to free list
-	if (p == heap.freelist) {       // head of free list is our chunk
-		heap.freelist = nextchunk;
+	if (p == freelist) {       // head of free list is our chunk
+		freelist = nextchunk;
 	}
 	else {
 		prev->next = nextchunk;
@@ -197,50 +202,27 @@ static Free_Header *nextfree(uint32_t size) {
 
 	return p;
 }
-void *get_heap_base() { return heap.base; }
 
-Free_Header *get_freelist() {
-	Free_Header head;
-	Free_Header next;
-	size_t index = 0;
-	while (bin[index] == NULL && index <BIN_SIZE){
-		index ++;
-	}
-	if (index == BIN_SIZE) {
-		head->next = heap.freelist;
-		return head;
-	}
-	head = bin[index];
-	next = head;
-	while (next->next != NULL){
-		next = next->next;
-	}
-	uint32_t i;
-	for (i=index+1;i<BIN_SIZE;i++) {
-		if(bin[i] != NULL) {
-			next->next = bin[i];
-			while (next->next != NULL){
-				next = next->next;
-			}
-		}
-	}
-	return head;
-}
+void *get_heap_base() { return heap; }
+
+Free_Header *get_heap_freelist() { return freelist;}
+
+Free_Header *get_bin_freelist(uint32_t binindex) { return bin[binindex];}
 
 
-void freelist_shutdown() {
-	dropcore(heap.base, ((Free_Header *)heap.base)->size);
+void heap_shutdown() {
+	dropcore(heap, DEFAULT_MAX_HEAP_SIZE);
 }
 
 Heap_Info get_heap_info() {
 	void *heap = get_heap_base();			  // should be allocated chunk
-	void *end_of_heap = heap + heap_size - 1; // last valid address of heap
+	void *end_of_heap = heap + DEFAULT_MAX_HEAP_SIZE - 1; // last valid address of heap
 	Busy_Header *p = heap;
 	uint32_t busy = 0;
 	uint32_t free = 0;
 	uint32_t busy_size = 0;
 	uint32_t free_size = 0;
-	while ( p>=heap && p<=end_of_heap ) { // stay inbounds, walking heap
+	while ( p >= heap && p <= end_of_heap ) { // stay inbounds, walking heap
 		// track
 		if ( p->size & BUSY_BIT ) {
 			busy++;
@@ -252,7 +234,7 @@ Heap_Info get_heap_info() {
 		}
 		p = (Busy_Header *)((char *) p + chunksize(p));
 	}
-	return (Heap_Info){heap_size, busy, busy_size, free, free_size};
+	return (Heap_Info){DEFAULT_MAX_HEAP_SIZE, busy, busy_size, free, free_size};
 }
 
 
