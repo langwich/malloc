@@ -40,7 +40,7 @@ void test_bs_init() {
 	bitset bs;
 	bs_init(&bs, 2, g_heap);
 	assert_equal(bs.m_bc[0], 0xC000000000000000);
-	assert_equal(bs.m_bc[1], 0ULL);
+	assert_equal(bs.m_bc[1], 0x0);
 }
 
 void test_bs_set1() {
@@ -73,6 +73,23 @@ void test_bs_set1_right_boundary_lo() {
 	bs_set1(&bs, 63, 77);
 	assert_equal(bs.m_bc[0], 0xC000000000000001);
 	assert_equal(bs.m_bc[1], 0xFFFC000000000000);
+}
+
+void test_bs_set1_same_chk() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	assert_equal(bs.m_bc[0], 0xC000000000000000);
+	bs_set1(&bs, 2, 3);
+	assert_equal(bs.m_bc[0], 0xF000000000000000);
+}
+
+void test_bs_set1_same_chk_middle() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	assert_equal(bs.m_bc[0], 0xC000000000000000);
+	bs_set1(&bs, 23, 33);
+	assert_equal(bs.m_bc[0], 0xC00001FFC0000000);
+	assert_equal(bs.m_bc[1], 0x0);
 }
 
 void test_bs_set0() {
@@ -111,6 +128,48 @@ void test_bs_set0_right_boundary_lo() {
 	assert_equal(bs.m_bc[1], 0x0003800000000000);
 }
 
+void test_bs_set0_same_chk() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	bs_set1(&bs, 23, 63);//  0xC00001FFFFFFFFFF
+	bs_set0(&bs, 24, 33);
+	assert_equal(bs.m_bc[0], 0xC00001003FFFFFFF);
+	assert_equal(bs.m_bc[1], 0x0);
+}
+
+void test_bs_chk_scann() {
+	BITCHUNK bchk = 0xFFFFF1FFFFFFF011;
+	int index7 = bs_chk_scann(bchk, 7);
+	int index4 = bs_chk_scann(bchk, 4);
+	int index3 = bs_chk_scann(bchk, 3);
+	int index10 = bs_chk_scann(bchk, 10);
+	assert_equal(52, index7);
+	assert_equal(52, index4);
+	assert_equal(20, index3);
+	assert_equal(-1, index10);
+}
+
+void test_bs_chk_scann_left_bdry() {
+	BITCHUNK bchk = 0x0100000000000000;
+	int index7 = bs_chk_scann(bchk, 7);
+	assert_equal(0, index7);
+}
+
+void test_bs_chk_scann_right_bdry() {
+	BITCHUNK bchk = 0xFFFFFFFFFFFFFF80;
+	int index7 = bs_chk_scann(bchk, 7);
+	assert_equal(57, index7);
+}
+
+void test_bs_nrun() {
+	bitset bs;
+	bs_init(&bs, 2, g_heap);
+	size_t index2 = bs_nrun(&bs, 2);
+	assert_equal(2, index2);
+	size_t index12 = bs_nrun(&bs, 12);
+	assert_equal(4, index12);
+}
+
 int main(int argc, char *argv[]) {
 	cunit_setup = setup;
 	cunit_teardown = teardown;
@@ -120,10 +179,19 @@ int main(int argc, char *argv[]) {
 	test(test_bs_set1_left_boundary);
 	test(test_bs_set1_right_boundary_hi);
 	test(test_bs_set1_right_boundary_lo);
+	test(test_bs_set1_same_chk);
+	test(test_bs_set1_same_chk_middle);
 	test(test_bs_set0);
 	test(test_bs_set0_left_boundary);
 	test(test_bs_set0_right_boundary_hi);
 	test(test_bs_set0_right_boundary_lo);
+	test(test_bs_set0_same_chk);
+
+	test(test_bs_chk_scann);
+	test(test_bs_chk_scann_left_bdry);
+	test(test_bs_chk_scann_right_bdry);
+
+	test(test_bs_nrun);
 
 	return 0;
 }

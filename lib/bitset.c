@@ -24,11 +24,34 @@ SOFTWARE.
 
 #include <stddef.h>
 #include <unistd.h>
-#include <stdio.h>
+
+#include <x86intrin.h>
+
 #include "bitset.h"
 
-static void init_lup();
+static void init_lups();
 static void init_masks();
+
+
+static inline size_t bs_lzcnt(BITCHUNK bchk) {
+	// in Core i7 processors the LZCNT instruction
+	// is implemented using BSR, thus its the index
+	// of the first set bit.
+	// TODO more general calculation of leading zeros.
+	return CHK_IN_BIT - __lzcnt64(bchk) - 1;
+}
+
+static inline size_t bs_tzcnt(BITCHUNK bchk) {
+	// in Core i7 processors this intrinsic is translated to
+	// BSF, thus gives the first index of a set bit.
+	// TODO BMI not enabled in i7.
+	return __builtin_ctzll(bchk);
+}
+
+static inline size_t bs_popcnt(BITCHUNK bchk) {
+	return CHK_IN_BIT - __builtin_popcountll(bchk);
+}
+
 
 /*
  * Initializes a bitset with n chunks.
@@ -37,7 +60,7 @@ static void init_masks();
  */
 void bs_init(bitset *bs, size_t nchks, void *pheap) {
 	// initialize all kinds of masks.
-	init_lup();
+	init_lups();
 	init_masks();
 
 	bs->m_nbc = nchks;
@@ -50,50 +73,142 @@ void bs_init(bitset *bs, size_t nchks, void *pheap) {
  * Dump the bit chunk to fd. Mainly used for debug/test.
  */
 void bs_dump(BITCHUNK bc, int fd) {
-	for (BITCHUNK i = 1ULL << (CHUNK_SIZE_IN_BITS - 1); i > 0; i = i / 2) {
+	for (BITCHUNK i = 1ULL << (CHK_IN_BIT - 1); i > 0; i = i / 2) {
 		(bc & i)? write(fd, "1", 1): write(fd, "0", 1);
 	}
 	write(fd, "\n", 1);
 }
 /*
  * Returns the index of the first n-run of 0s in the bitset.
- * The index is 0-based.
+ * The index is 0-based. -1 is returned if no n-run of 0s are
+ * found.
+ *
+ * Algorithm:
+ * During the scan, the program behave in two modes: cross mode
+ * and non-cross mode. During cross mode, we are looking for a
+ * run of n consecutive 0s cross the word boundary. And in
+ * non-cross mode we expect to get our result within the current
+ * word.
  */
-int bs_nrun(bitset *bs, size_t n) {
-	return 0;
+size_t bs_nrun(bitset *bs, size_t n) {
+	// although start_index starts from 0, but it should always
+	// skip the first few bits set for the bit score board itself.
+	size_t start_index = 0;
+	size_t end_index = start_index;
+	// starts with non-cross mode
+	int mode = 0;// 0, non-crossing, 1 leading, 2 trailing (1, 2 are cross modes)
+	int one_chk_possible = n > CHK_IN_BIT ? 0 : 1;
+	if (!one_chk_possible) mode = 2;
+	// current chunk index.
+	size_t cur_chunk_index = 0;
+
+	size_t remaining = n;
+	while (cur_chunk_index < bs->m_nbc) {
+		BITCHUNK cur_bchk = bs->m_bc[cur_chunk_index];
+		if (!remaining) break;
+		if (1 == mode) {
+			size_t lzcnt = bs_lzcnt(cur_bchk);
+			if (lzcnt < remaining) {
+				if (CHK_IN_BIT == lzcnt) {
+					remaining -= lzcnt;
+					end_index += lzcnt;
+					cur_chunk_index++;
+				}
+				else {
+					// not enough consecutive bits, restart scan
+					// in this chunk
+					if (one_chk_possible) mode = 0;
+					else mode = 2;
+					remaining = n;
+				}
+			}
+			else {
+				end_index += remaining;
+				break;
+			}
+		}
+		else if (2 == mode){
+			// trailing mode could only happen when we just
+			// started the crossing mode.
+			size_t tzcnt = bs_tzcnt(cur_bchk);
+			if (tzcnt) {
+				start_index = (cur_chunk_index + 1) * CHK_IN_BIT - tzcnt;
+				end_index = start_index + tzcnt - 1;
+				remaining -= tzcnt;
+				mode = 1;
+			}
+			cur_chunk_index++;
+		}
+		else {// non crossing mode
+			int index = bs_chk_scann(cur_bchk, n);
+			if (index > 0) {
+				start_index = cur_chunk_index * CHK_IN_BIT + index;
+				end_index = start_index + n - 1;
+				break;
+			}
+			// no contiguous chunk found, starting trailing mode
+			mode = 2;
+		}
+	}
+
+	bs_set1(bs, start_index, end_index);
+
+	return start_index;
 }
 /*
- * Sets the bits in [lo,hi] to 1.
+ * Sets the bits in [lo,hi] to 1. lo is the less significant bit.
  * lo and hi are bit indices and are *0-BASED*
  */
 int bs_set1(bitset *bs, size_t lo, size_t hi) {
-	size_t lo_chk =  ROUND_UP(lo) / (CHUNK_SIZE_IN_BITS);
-	// TODO: What if the heap size is really small?
-	size_t hi_chk =  ROUND_DOWN(hi) / (CHUNK_SIZE_IN_BITS);
-	for (size_t i = lo_chk; i < hi_chk; ++i) {
-		bs->m_bc[i] |= BC_ONE;
+	size_t lo_chk = lo / CHK_IN_BIT;
+	size_t hi_chk = hi / CHK_IN_BIT;
+	if (lo_chk == hi_chk) {
+		bs->m_bc[lo_chk] |= ~(right_masks[(lo_chk + 1) * CHK_IN_BIT - lo] ^ left_masks[hi + 1 - hi_chk * CHK_IN_BIT]);
 	}
-	bs->m_bc[lo_chk == 0 ? lo_chk : lo_chk - 1] |= right_masks[lo_chk * CHUNK_SIZE_IN_BITS - lo];
-	bs->m_bc[hi_chk] |= left_masks[hi - hi_chk * CHUNK_SIZE_IN_BITS + 1];
+	else {
+		size_t next_chk = lo_chk + 1;
+		while (next_chk < hi_chk) bs->m_bc[next_chk++] |= BC_ONE;
+		bs->m_bc[lo_chk] |= right_masks[(lo_chk + 1) * CHK_IN_BIT - lo];
+		bs->m_bc[hi_chk] |= left_masks[hi + 1 - hi_chk * CHK_IN_BIT];
+	}
 	return 0;
 }
 /*
- * Sets the bits in [lo,hi] to 0.
+ * Sets the bits in [lo,hi] to 0. lo is the less significant bit
  * lo and hi are bit indices and are *0-BASED*
  */
 int bs_set0(bitset *bs, size_t lo, size_t hi) {
-	size_t lo_chk =  ROUND_UP(lo) / (CHUNK_SIZE_IN_BITS);
-	size_t hi_chk =  ROUND_DOWN(hi) / (CHUNK_SIZE_IN_BITS);
-	for (size_t i = lo_chk; i < hi_chk; ++i) {
-		bs->m_bc[i] &= 0;
+
+	size_t lo_chk = lo / CHK_IN_BIT;
+	size_t hi_chk = hi / CHK_IN_BIT;
+	if (lo_chk == hi_chk) {
+		bs->m_bc[lo_chk] &= (right_masks[(lo_chk + 1) * CHK_IN_BIT - lo] ^ left_masks[hi + 1 - hi_chk * CHK_IN_BIT]);
 	}
-	bs->m_bc[lo_chk == 0 ? lo_chk : lo_chk - 1] &= ~right_masks[lo_chk * CHUNK_SIZE_IN_BITS - lo];
-	bs->m_bc[hi_chk] &= ~left_masks[hi - hi_chk * CHUNK_SIZE_IN_BITS + 1];
+	else {
+		size_t next_chk = lo_chk + 1;
+		while (next_chk < hi_chk) bs->m_bc[next_chk++] &= 0ULL;
+		bs->m_bc[lo_chk] &= ~right_masks[(lo_chk + 1) * CHK_IN_BIT - lo];
+		bs->m_bc[hi_chk] &= ~left_masks[hi + 1 - hi_chk * CHK_IN_BIT];
+	}
+
 	return 0;
 }
 
-static void init_lup() {
+/*
+ * Finds the start index of contiguous n 0 bits in a BITCHUNK.
+ * returns -1 if the BITCHUNK doesn't meet the requirement.
+ */
+int bs_chk_scann(BITCHUNK bchk, size_t n) {
+	int i = 0;
+	while (bs_lzcnt(bchk) < n) {
+		bchk = (bchk << 1) | (BITCHUNK) 1;
+		if (bs_popcnt(bchk) < n || (i == (CHK_IN_BIT - n))) return -1;
+		i++;
+	}
+	return i;
+}
 
+static void init_lups() {
 	for (int i = 0; i < LUP_ROW; ++i) {
 		for (int j = 0; j < LUP_COL; ++j) {
 			ff_lup[i][j] = -1;
@@ -102,7 +217,7 @@ static void init_lup() {
 
 	for (int i = 0; i < LUP_ROW; ++i) {
 		for (int j = 0; j < LUP_COL; ++j) {
-			U1 mask = n_leading0[j];
+			U1 mask = n_lz_mask[j];
 			for (int k = 0; k < BIT_NUM - j; ++k) {
 				// stops when we got j+1 consecutive 0s
 				// or we reach the end.
@@ -111,6 +226,16 @@ static void init_lup() {
 					break;
 				}
 				mask = (U1) ((1 << 7) | (mask >> 1));
+			}
+		}
+		for (int j = 0; j < LUP_COL; ++j) {
+			U1 lz_mask = n_lz_mask[j];
+			U1 tz_mask = n_tz_mask[j];
+			if (((U1)i | lz_mask) == lz_mask) {
+				lz_lup[i] = j + 1;
+			}
+			if (((U1)i | tz_mask) == tz_mask) {
+				tz_lup[i] = j + 1;
 			}
 		}
 	}

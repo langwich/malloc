@@ -26,7 +26,6 @@ SOFTWARE.
 #include <morecore.h>
 
 #include "bitmap.h"
-#include "bitset.h"
 
 static void *g_pheap;
 static size_t g_heap_size;
@@ -40,7 +39,7 @@ void bitmap_init(size_t size) {
 	g_pheap = morecore(size);
 	g_heap_size = size;
 	// the bitset will "borrow" some heap space here for the bit "score-board".
-	bs_init(&g_bset, size / (CHUNK_SIZE_IN_BITS * WORD_SIZE) + 1, g_pheap);
+	bs_init(&g_bset, size / (CHK_IN_BIT * WORD_SIZE) + 1, g_pheap);
 }
 
 void bitmap_release() {
@@ -52,18 +51,11 @@ void bitmap_release() {
  * amount of heap/mapped memory.
  * The size is round up to the word boundary.
  * NULL is returned when there is not enough memory.
- *
- * Algorithm:
- * During the scan, the program behave in two modes: cross mode
- * and non-cross mode. During cross mode, we are looking for a
- * run of n consecutive 0s cross the word boundary. And in
- * non-cross mode we expect to get our result within the current
- * word.
  */
 void *malloc(size_t size)
 {
 	size_t n = ALIGN_WORD_BOUNDARY(size);
-	int run_index = bs_nrun(&g_bset, n);
+	int run_index = bs_nrun(&g_bset, n / WORD_SIZE);
 	return g_pheap + run_index;
 }
 
