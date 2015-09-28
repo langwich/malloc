@@ -24,9 +24,6 @@ SOFTWARE.
 
 #include <stddef.h>
 #include <unistd.h>
-
-#include <x86intrin.h>
-
 #include "bitset.h"
 
 static void init_lups();
@@ -37,15 +34,20 @@ static inline size_t bs_lzcnt(BITCHUNK bchk) {
 	// in Core i7 processors the LZCNT instruction
 	// is implemented using BSR, thus its the index
 	// of the first set bit.
-	// TODO more general calculation of leading zeros.
-	return CHK_IN_BIT - __lzcnt64(bchk) - 1;
+
+	// TODO currently the clang flag is turned for this intrinsic.
+	// TODO not actually using LZCNT instruction.
+	return bchk ? __builtin_clzll(bchk) : CHK_IN_BIT;
 }
 
 static inline size_t bs_tzcnt(BITCHUNK bchk) {
 	// in Core i7 processors this intrinsic is translated to
 	// BSF, thus gives the first index of a set bit.
-	// TODO BMI not enabled in i7.
-	return __builtin_ctzll(bchk);
+	
+	// TODO currently the clang flag is turned for this intrinsic.
+	// TODO not actually using LZCNT instruction. and it has a weird
+	// TODO optimization when using clang, try with gcc later.
+	return bchk ? __builtin_ctzll(bchk) : CHK_IN_BIT;
 }
 
 static inline size_t bs_popcnt(BITCHUNK bchk) {
@@ -137,11 +139,16 @@ size_t bs_nrun(bitset *bs, size_t n) {
 				remaining -= tzcnt;
 				mode = 1;
 			}
+			else if (one_chk_possible) {
+				// give up on this pass, start over from non-trailing mode
+				// if it can be fit into one chunk.
+				mode = 0;
+			}
 			cur_chunk_index++;
 		}
 		else {// non crossing mode
 			int index = bs_chk_scann(cur_bchk, n);
-			if (index > 0) {
+			if (index >= 0) {
 				start_index = cur_chunk_index * CHK_IN_BIT + index;
 				end_index = start_index + n - 1;
 				break;
@@ -151,8 +158,8 @@ size_t bs_nrun(bitset *bs, size_t n) {
 		}
 	}
 
+	if (cur_chunk_index >= bs->m_nbc) return BITSET_NON;
 	bs_set1(bs, start_index, end_index);
-
 	return start_index;
 }
 /*
@@ -178,7 +185,6 @@ int bs_set1(bitset *bs, size_t lo, size_t hi) {
  * lo and hi are bit indices and are *0-BASED*
  */
 int bs_set0(bitset *bs, size_t lo, size_t hi) {
-
 	size_t lo_chk = lo / CHK_IN_BIT;
 	size_t hi_chk = hi / CHK_IN_BIT;
 	if (lo_chk == hi_chk) {

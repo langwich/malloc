@@ -27,15 +27,15 @@ SOFTWARE.
 
 #include <stddef.h>
 
-typedef unsigned long long      BITCHUNK;
+typedef unsigned long long      BITCHUNK;// one full chunk covers 512 bytes in the heap.
 typedef unsigned char           U1;
 
+#define BITSET_NON              ((BITCHUNK) ~0x0)// we can never get that much memory
 #define BIT_NUM                 8
 #define WORD_SIZE               (sizeof(void *))
 #define ALIGN_MASK              (WORD_SIZE - 1)
 #define CHUNK_SIZE              (sizeof(BITCHUNK))// usually it's the same as WORD_SIZE on 64-bit machines.
 #define CHK_IN_BIT      (CHUNK_SIZE * BIT_NUM)
-#define CHUNK_ALIGN_MASK        (CHK_IN_BIT - 1)
 #define BC_ONE                  0xFFFFFFFFFFFFFFFF
 #define BC_LEFTMOST_MASK        0x8000000000000000
 
