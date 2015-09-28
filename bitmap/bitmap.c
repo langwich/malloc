@@ -72,7 +72,7 @@ void *malloc(size_t size)
 	boundary[0] = BOUNDARY_TAG;
 	boundary[1] = (U32) num_bits;
 
-	return addr;
+	return addr + 1;
 }
 
 /*

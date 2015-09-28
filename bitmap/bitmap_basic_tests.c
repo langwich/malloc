@@ -48,10 +48,10 @@ void test_bitmap_malloc() {
 	// check bit board
 	assert_equal(0xFFE0000000000000, *((BITCHUNK *)g_pheap));
 	// check address
-	assert_addr_equal(addr10, g_pheap + 8);
+	assert_addr_equal(addr10, g_pheap + 8 + 1);
 	// check boundary tag
-	assert_equal(0xBBEEEEFF, *((U32 *)addr10));
-	assert_equal(3, ((U32 *)addr10)[1]);
+	assert_equal(0xBBEEEEFF, *((U32 *)(addr10 - 1)));
+	assert_equal(3, ((U32 *)(addr10 - 1))[1]);
 }
 
 int main(int argc, char *argv[]) {
