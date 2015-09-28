@@ -25,7 +25,8 @@ SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 #include "binning.h"
-#include "cunit.h"
+//#include "cunit.h"
+#include "../cunit/cunit.h"
 
 
 Heap_Info verify_heap() {
@@ -36,7 +37,7 @@ Heap_Info verify_heap() {
 }
 
 static void setup()		{ heap_init(); }
-static void teardown()	{ verify_heap(); heap_shutdown(); }
+static void teardown()	{ heap_shutdown(); }
 
 void malloc0() {
     void *p = malloc(0);
@@ -50,7 +51,51 @@ void malloc_word_size() {
     assert_equal(chunksize(p), MIN_CHUNK_SIZE);
 }
 
-void two_malloc_with_free() {
+void one_malloc() {
+    void *p = malloc(100);
+    assert_addr_not_equal(p, NULL);
+    Free_Header *freelist = get_heap_freelist();
+    Busy_Header *heap = get_heap_base();
+    assert_addr_not_equal(freelist, heap);
+    // check 1st chunk
+    assert_equal(p, heap);
+    assert_equal(chunksize(p), request2size(100));
+    // check 2nd chunk
+    assert_equal(freelist->size, DEFAULT_MAX_HEAP_SIZE-request2size(100));
+    assert_addr_equal(freelist->next, NULL);
+
+    Heap_Info info = verify_heap();
+    assert_equal(info.busy, 1);
+    assert_equal(info.busy_size, request2size(100));
+    assert_equal(info.free, 1);
+    assert_equal(info.free_size, DEFAULT_MAX_HEAP_SIZE - request2size(100));
+}
+
+void two_malloc() {
+    one_malloc();
+    void *p0 = get_heap_base();
+    Free_Header *freelist0 = get_heap_freelist();
+    Busy_Header *p = malloc(200);
+    assert_addr_not_equal(p, NULL);
+    // check 2nd alloc chunk
+    assert_equal(p, freelist0); // should return previous free chunk
+    assert_equal(chunksize(p), request2size(200));
+    // check remaining free chunk
+    Free_Header *freelist1 = get_heap_freelist();
+    assert_addr_not_equal(freelist0, freelist1);
+    assert_addr_not_equal(freelist0, get_heap_base());
+    assert_equal(chunksize(freelist1), DEFAULT_MAX_HEAP_SIZE-request2size(100)-request2size(200));
+    assert_equal(chunksize(p0)+chunksize(p)+chunksize(freelist1), DEFAULT_MAX_HEAP_SIZE);
+    assert_addr_equal(freelist1->next, NULL);
+
+    Heap_Info info = verify_heap();
+    assert_equal(info.busy, 2);
+    assert_equal(info.busy_size, request2size(100) + request2size(200));
+    assert_equal(info.free, 1);
+    assert_equal(info.free_size, DEFAULT_MAX_HEAP_SIZE - request2size(100) - request2size(200));
+}
+
+void malloc_free_malloc() {  // test bin malloc and free
     void *p = malloc(100); // should split heap into two chunks
     assert_addr_not_equal(p, NULL);
     Free_Header *freelist = get_heap_freelist();
@@ -65,29 +110,57 @@ void two_malloc_with_free() {
 
     Free_Header *freelist1 = get_bin_freelist(request2size(100)-1);// freelist of bin should be NULL
     free(p);
-    Free_Header *freelist2 = get_bin_freelist(request2size(100)-1);//// freelist of bin should be have one element p
+    Free_Header *freelist2 = get_bin_freelist(request2size(100)-1);// freelist of bin should be have one element p
     assert_addr_not_equal(freelist1,freelist2);
     void *p1 = malloc(100); // this malloc should be from bin
     assert_addr_not_equal(p1, NULL);
     Free_Header *freelist3 = get_bin_freelist(request2size(100)-1); // freelist of bin should be NULL
     assert_addr_equal(freelist3,NULL);
+
+    free(p1);
+    Free_Header *freelist4 = get_bin_freelist(request2size(100)-1); // freelist should have one element p1
+    assert_addr_equal(freelist2,freelist4);
 }
 
 void malloc_large_size_then_free() {
+    Free_Header *freelist = get_heap_freelist();//free list before malloc
     void *p = malloc(2048);
     assert_addr_not_equal(p, NULL);
     assert_equal(chunksize(p), request2size(2048));
-    Free_Header *freelist = get_heap_freelist();
+    Free_Header *freelist1 = get_heap_freelist(); // free list after malloc
     Busy_Header *heap = get_heap_base();
-    assert_addr_not_equal(heap,freelist);
+    assert_addr_equal(p,heap);
+    assert_addr_not_equal(heap,freelist1);
     free(p);
     Busy_Header *heap1 = get_heap_base();
-    Free_Header *freelist1 = get_heap_freelist();
-    assert_addr_equal(heap1,freelist1);
+    Free_Header *freelist2 = get_heap_freelist(); // free list after free,should back to status before malloc
+    assert_addr_equal(heap1,freelist2);
+    assert_addr_equal(freelist,freelist2);
 }
 
 void free_NULL() {
     free(NULL); // don't crash
+}
+
+char buf[] = "hi"; // used by free_random
+void free_random() {
+    void *heap0 = get_heap_base();
+    Free_Header *freelist0 = get_heap_freelist();
+
+    free(buf); // try to free a valid but non-heap data address
+
+    void *heap1 = get_heap_base();
+    Free_Header *freelist1 = get_heap_freelist();
+
+    assert_addr_equal(heap1, heap0);
+    assert_addr_equal(freelist1, freelist0);
+}
+
+void freelist_free_stale() {
+    malloc_large_size_then_free();
+    Free_Header *freelist = get_heap_freelist();
+    free(freelist); // NOT ok; freeing something already free'd
+    assert_addr_not_equal(freelist, freelist->next); // make sure we didn't create cycle by freeing twice
 }
 
 int main(int argc, char *argv[]) {
@@ -97,7 +170,11 @@ int main(int argc, char *argv[]) {
     test(malloc0);
     test(free_NULL);
     test(malloc_word_size);
+    test(one_malloc);
+    test(two_malloc);
+    test(malloc_free_malloc);
     test(malloc_large_size_then_free);
-    test(two_malloc_with_free);
+    test(free_random);
+    test(freelist_free_stale);
 }
 

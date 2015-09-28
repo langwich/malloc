@@ -68,9 +68,7 @@ void heap_init() {
 void *malloc(size_t size) {
 
 	uint32_t n = (uint32_t) size & SIZEMASK;
-	printf("%d",n);
 	size_t actual_size = request2size(n);
-	printf("%d",actual_size);
 	Busy_Header *b;
 	if (actual_size >BIN_SIZE) {
 		Free_Header *q = nextfree(actual_size);
@@ -94,7 +92,6 @@ void *malloc(size_t size) {
 		b = (Busy_Header *)q;
 		b->size |= BUSY_BIT;
 	}
-	printf("%d",b->size);
 	return b;
 }
 
@@ -129,7 +126,7 @@ void free(void *p) {
 	}
 	else {
 		q->next = freelist;
-		q->size = size; // turn off busy bit
+		q->size = size;
 		freelist = q;
 	}
 }
@@ -158,7 +155,6 @@ static Free_Header *next_small_free(uint32_t size){
 		bin[index-1] = bin[index-1]->next;
 		remain->size = index - size;
 		Free_Header *prev = bin[remain->size-1];
-
 		if (prev == NULL) {
 			bin[remain->size-1] = remain;
 		}
@@ -192,12 +188,12 @@ static Free_Header *nextfree(uint32_t size) {
 
 	p->size = size;
 
-	// add nextchunk to free list
 	if (p == freelist) {       // head of free list is our chunk
 		freelist = nextchunk;
 	}
 	else {
 		prev->next = nextchunk;
+
 	}
 
 	return p;
