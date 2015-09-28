@@ -29,6 +29,7 @@ SOFTWARE.
 
 typedef unsigned long long      BITCHUNK;// one full chunk covers 512 bytes in the heap.
 typedef unsigned char           U1;
+typedef __uint32_t              U32;
 
 #define BITSET_NON              ((BITCHUNK) ~0x0)// we can never get that much memory
 #define BIT_NUM                 8

@@ -39,7 +39,7 @@ void bitmap_init(size_t size) {
 	g_pheap = morecore(size);
 	g_heap_size = size;
 	// the bitset will "borrow" some heap space here for the bit "score-board".
-	bs_init(&g_bset, size / (CHK_IN_BIT * WORD_SIZE) + 1, g_pheap);
+	bs_init(&g_bset, size / (CHK_IN_BIT * WORD_SIZE), g_pheap);
 }
 
 void bitmap_release() {
@@ -51,12 +51,28 @@ void bitmap_release() {
  * amount of heap/mapped memory.
  * The size is round up to the word boundary.
  * NULL is returned when there is not enough memory.
+ *
+ *  First word serve as the boundary.
+ *      32bit     32bit
+ * |===========+===========|=========
+ * | BBEEEEFF  +   size    | data...
+ * |===========+===========|=========
  */
 void *malloc(size_t size)
 {
 	size_t n = ALIGN_WORD_BOUNDARY(size);
-	int run_index = bs_nrun(&g_bset, n / WORD_SIZE);
-	return g_pheap + run_index;
+
+	size_t run_index;
+	// +1 for the extra boundary tag
+	size_t num_bits = n / WORD_SIZE + 1;
+	if ((run_index = bs_nrun(&g_bset, num_bits)) == BITSET_NON) return NULL;
+
+	void *addr = g_pheap + run_index;
+	U32 *boundary = (U32 *)addr;
+	boundary[0] = BOUNDARY_TAG;
+	boundary[1] = (U32) num_bits;
+
+	return addr;
 }
 
 /*

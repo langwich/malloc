@@ -28,6 +28,8 @@ SOFTWARE.
 #include <stddef.h>
 #include <bitset.h>
 
+#define BOUNDARY_TAG        0xBBEEEEFF
+
 void bitmap_init(size_t size);
 void bitmap_release();
 

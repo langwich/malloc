@@ -40,7 +40,18 @@ static void teardown() {
 }
 
 void test_bitmap_init() {
-	assert_not_equal(g_pheap, malloc(10));
+	assert_equal(0xFF00000000000000, *((BITCHUNK *)g_pheap));
+}
+
+void test_bitmap_malloc() {
+	void *addr10 = malloc(10);
+	// check bit board
+	assert_equal(0xFFE0000000000000, *((BITCHUNK *)g_pheap));
+	// check address
+	assert_addr_equal(addr10, g_pheap + 8);
+	// check boundary tag
+	assert_equal(0xBBEEEEFF, *((U32 *)addr10));
+	assert_equal(3, ((U32 *)addr10)[1]);
 }
 
 int main(int argc, char *argv[]) {
@@ -48,6 +59,7 @@ int main(int argc, char *argv[]) {
 	cunit_teardown = teardown;
 
 	test(test_bitmap_init);
+	test(test_bitmap_malloc);
 
 	return 0;
 }

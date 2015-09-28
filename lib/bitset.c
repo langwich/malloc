@@ -43,7 +43,7 @@ static inline size_t bs_lzcnt(BITCHUNK bchk) {
 static inline size_t bs_tzcnt(BITCHUNK bchk) {
 	// in Core i7 processors this intrinsic is translated to
 	// BSF, thus gives the first index of a set bit.
-	
+
 	// TODO currently the clang flag is turned for this intrinsic.
 	// TODO not actually using LZCNT instruction. and it has a weird
 	// TODO optimization when using clang, try with gcc later.
