@@ -48,10 +48,36 @@ void test_bitmap_malloc() {
 	// check bit board
 	assert_equal(0xFFE0000000000000, *((BITCHUNK *)g_pheap));
 	// check address
-	assert_addr_equal(addr10, g_pheap + 8 + 1);
+	assert_addr_equal(addr10, WORD(g_pheap) + 8 + 1);
 	// check boundary tag
-	assert_equal(0xBBEEEEFF, *((U32 *)(addr10 - 1)));
-	assert_equal(3, ((U32 *)(addr10 - 1))[1]);
+	assert_equal(0xBBEEEEFF, *((U32 *)(WORD(addr10) - 1)));
+	assert_equal(3, ((U32 *)(WORD(addr10) - 1))[1]);
+}
+
+void test_bitmap_malloc_free() {
+	//////////
+	void *addr20 = malloc(20);
+	// check bit board
+	assert_equal(0xFFF0000000000000, *((BITCHUNK *)g_pheap));
+	// check address
+	assert_addr_equal(addr20, WORD(g_pheap) + 8 + 1);
+	// check boundary tag
+	assert_equal(0xBBEEEEFF, *((U32 *)(WORD(addr20) - 1)));
+	assert_equal(4, ((U32 *)(WORD(addr20) - 1))[1]);
+	//////////
+	void *addr100 = malloc(100);
+	// check bit board
+	assert_equal(0xFFFFFFC000000000, *((BITCHUNK *)g_pheap));
+	// check address
+	assert_addr_equal(addr100, WORD(g_pheap) + 12 + 1);
+	// check boundary tag
+	assert_equal(0xBBEEEEFF, *((U32 *)(WORD(addr100) - 1)));
+	assert_equal(14, ((U32 *)(WORD(addr100) - 1))[1]);
+	///////////
+	// freeing
+	free(addr20);
+	// check bit board
+	assert_equal(0xFF0FFFC000000000, *((BITCHUNK *)g_pheap));
 }
 
 int main(int argc, char *argv[]) {
@@ -60,6 +86,7 @@ int main(int argc, char *argv[]) {
 
 	test(test_bitmap_init);
 	test(test_bitmap_malloc);
+	test(test_bitmap_malloc_free);
 
 	return 0;
 }

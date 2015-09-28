@@ -66,13 +66,11 @@ void *malloc(size_t size)
 	// +1 for the extra boundary tag
 	size_t num_bits = n / WORD_SIZE + 1;
 	if ((run_index = bs_nrun(&g_bset, num_bits)) == BITSET_NON) return NULL;
-
-	void *addr = g_pheap + run_index;
-	U32 *boundary = (U32 *)addr;
+	void *ptr = WORD(g_pheap) + run_index;
+	U32 *boundary = (U32 *) ptr;
 	boundary[0] = BOUNDARY_TAG;
 	boundary[1] = (U32) num_bits;
-
-	return addr + 1;
+	return WORD(ptr) + 1;
 }
 
 /*
@@ -81,7 +79,14 @@ void *malloc(size_t size)
  */
 void free(void *ptr)
 {
-
+	if (ptr == NULL) return;
+	U32 *boundary = (U32 *) (WORD(ptr) - 1);
+#ifdef DEBUG
+	if (BOUNDARY_TAG != boundary[0]) fprintf(stderr, "boundary tag corrupted\n");
+#endif
+	U32 num_bits = boundary[1];
+	size_t start_index = WORD(ptr) - 1 - WORD(g_pheap);
+	bs_set0(&g_bset, start_index, start_index + num_bits - 1);
 }
 
 #ifdef DEBUG

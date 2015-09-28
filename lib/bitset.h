@@ -31,12 +31,13 @@ typedef unsigned long long      BITCHUNK;// one full chunk covers 512 bytes in t
 typedef unsigned char           U1;
 typedef __uint32_t              U32;
 
+#define WORD(x)                 ((unsigned long long *)x)
 #define BITSET_NON              ((BITCHUNK) ~0x0)// we can never get that much memory
 #define BIT_NUM                 8
 #define WORD_SIZE               (sizeof(void *))
 #define ALIGN_MASK              (WORD_SIZE - 1)
 #define CHUNK_SIZE              (sizeof(BITCHUNK))// usually it's the same as WORD_SIZE on 64-bit machines.
-#define CHK_IN_BIT      (CHUNK_SIZE * BIT_NUM)
+#define CHK_IN_BIT              (CHUNK_SIZE * BIT_NUM)
 #define BC_ONE                  0xFFFFFFFFFFFFFFFF
 #define BC_LEFTMOST_MASK        0x8000000000000000
 

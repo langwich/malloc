@@ -26,7 +26,7 @@ SOFTWARE.
 #define MALLOC_BITMAP_H
 
 #include <stddef.h>
-#include <bitset.h>
+#include "bitset.h"
 
 #define BOUNDARY_TAG        0xBBEEEEFF
 
