@@ -25,15 +25,14 @@ SOFTWARE.
 #include "binning.h"
 
 static void * heap;
+
+/*except bins, we have another freelist to handle the malloc and free request which size over 1024*/
 Free_Header *freelist;
 
 /* 1204 bins, each bin has a freelist with fix-sized(size = index of bin) free chunks*/
 Free_Header * bin[BIN_SIZE];
 
-/*except bins, we have another freelist to handle the malloc and free request which size over 1024*/
-//static Free_List_Heap heap;
-
-static Free_Header *nextfree(uint32_t size); //get chunk from free list;
+static Free_Header *nextfree(uint32_t size);
 static Free_Header *next_small_free(uint32_t size);
 
 void heap_init() {
@@ -97,7 +96,7 @@ void *malloc(size_t size) {
 
 /*
 * for each free request
-* if chunk size over 1024, free it and add to free list
+* if chunk size over 1024, free it and add to free list (sorted)
 * other wise add to bin[chunk_size-1]
 */
 void free(void *p) {
@@ -117,17 +116,30 @@ void free(void *p) {
 #endif
 		return;
 	}
-	uint32_t size = q->size & SIZEMASK;
+	uint32_t chunksize = q->size & SIZEMASK;
 
-	if (size <= BIN_SIZE){
-		q->next = bin[size-1];
-		q->size = size;
-		bin[size-1] = q;
+	if (chunksize <= BIN_SIZE){
+		q->next = bin[chunksize-1];
+		q->size = chunksize;
+		bin[chunksize-1] = q;
 	}
-	else {
-		q->next = freelist;
-		q->size = size;
-		freelist = q;
+	else { // free list is sorted by size in descending order
+		if (q->size < freelist->size && freelist != NULL) {
+			Free_Header * p = freelist;
+			Free_Header * prev = NULL;
+			while (prev->size > q->size && p != NULL){
+				prev = p;
+				p = p->next;
+			}
+			q->next = prev->next;
+			q->size = chunksize;
+			prev->next = q;
+		}
+		else {
+			q->next = freelist;
+			q->size = chunksize;
+			freelist = q;
+		}
 	}
 }
 
@@ -137,7 +149,7 @@ static Free_Header *next_small_free(uint32_t size){
 		bin[size-1] = bin[size-1]->next;
 		return chunk;
 	}
-	else if (freelist != NULL){
+	else if (freelist != NULL && freelist->size >= size){
 		return nextfree(size);
 	}
 	else {
@@ -148,28 +160,26 @@ static Free_Header *next_small_free(uint32_t size){
 		if(index == BIN_SIZE) {
 			return NULL;
 		}
-		Free_Header *remain;
 		Free_Header *p = bin[index-1];
-		Free_Header *chunk = (Free_Header *) (((char *) p) + size);
-		remain = p;
+		Free_Header *q = (Free_Header *) (((char *) p) + size);
 		bin[index-1] = bin[index-1]->next;
-		remain->size = index - size;
-		Free_Header *prev = bin[remain->size-1];
+		q->size = index - size;
+		Free_Header *prev = bin[q->size-1];
 		if (prev == NULL) {
-			bin[remain->size-1] = remain;
+			bin[q->size-1] = q;
 		}
 		else {
-			remain->next = prev;
-			bin[remain->size-1] = remain;
+			q->next = prev;
+			bin[q->size-1] = q;
 		}
-		return chunk;
+		return p;
 	}
 }
 
 static Free_Header *nextfree(uint32_t size) {
 	Free_Header *p = freelist;
 	Free_Header *prev = NULL;
-	while (p != NULL && size != p->size && p->size < size + MIN_CHUNK_SIZE) {
+	while (p != NULL && p->next != NULL && size != p->size && p->size > size + MIN_CHUNK_SIZE) {
 		prev = p;
 		p = p->next;
 	}

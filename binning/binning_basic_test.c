@@ -25,8 +25,7 @@ SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 #include "binning.h"
-//#include "cunit.h"
-#include "../cunit/cunit.h"
+#include "cunit.h"
 
 
 Heap_Info verify_heap() {
@@ -37,7 +36,7 @@ Heap_Info verify_heap() {
 }
 
 static void setup()		{ heap_init(); }
-static void teardown()	{ heap_shutdown(); }
+static void teardown()	{ verify_heap();heap_shutdown(); }
 
 void malloc0() {
     void *p = malloc(0);
@@ -95,30 +94,30 @@ void two_malloc() {
     assert_equal(info.free_size, DEFAULT_MAX_HEAP_SIZE - request2size(100) - request2size(200));
 }
 
-void malloc_free_malloc() {  // test bin malloc and free
-    void *p = malloc(100); // should split heap into two chunks
+void bin_malloc_free_malloc() {  // test bin malloc and free
+    void *p = malloc(99); // should split heap into two chunks
     assert_addr_not_equal(p, NULL);
     Free_Header *freelist = get_heap_freelist();
     Busy_Header *heap = get_heap_base();
     assert_addr_not_equal(freelist, heap);
     // check 1st chunk
     assert_equal(p, heap);
-    assert_equal(chunksize(p), request2size(100));
+    assert_equal(chunksize(p), request2size(99));
     // check 2nd chunk
-    assert_equal(freelist->size, DEFAULT_MAX_HEAP_SIZE-request2size(100));
+    assert_equal(freelist->size, DEFAULT_MAX_HEAP_SIZE-request2size(99));
     assert_addr_equal(freelist->next, NULL);
 
-    Free_Header *freelist1 = get_bin_freelist(request2size(100)-1);// freelist of bin should be NULL
-    free(p);
-    Free_Header *freelist2 = get_bin_freelist(request2size(100)-1);// freelist of bin should be have one element p
+    Free_Header *freelist1 = get_bin_freelist(request2size(99)-1);// freelist of bin should be NULL
+    free(p);                                                       // free to bin
+    Free_Header *freelist2 = get_bin_freelist(request2size(99)-1);// freelist of bin should be have one element p
     assert_addr_not_equal(freelist1,freelist2);
-    void *p1 = malloc(100); // this malloc should be from bin
+    void *p1 = malloc(99);                                        // this malloc should be from bin
     assert_addr_not_equal(p1, NULL);
-    Free_Header *freelist3 = get_bin_freelist(request2size(100)-1); // freelist of bin should be NULL
+    Free_Header *freelist3 = get_bin_freelist(request2size(99)-1); // freelist of bin should be NULL
     assert_addr_equal(freelist3,NULL);
 
     free(p1);
-    Free_Header *freelist4 = get_bin_freelist(request2size(100)-1); // freelist should have one element p1
+    Free_Header *freelist4 = get_bin_freelist(request2size(99)-1); // freelist should have one element p1
     assert_addr_equal(freelist2,freelist4);
 }
 
@@ -136,6 +135,27 @@ void malloc_large_size_then_free() {
     Free_Header *freelist2 = get_heap_freelist(); // free list after free,should back to status before malloc
     assert_addr_equal(heap1,freelist2);
     assert_addr_equal(freelist,freelist2);
+}
+
+void bin_split_malloc(){
+    void *p = malloc(128); // get chunk from free list
+    assert_addr_not_equal(p, NULL);
+    Free_Header *freelist = get_bin_freelist(request2size(128)-1);
+    free(p); // free and add to bin
+    Free_Header *freelist1 = get_bin_freelist(request2size(128)-1);
+    assert_addr_not_equal(freelist,freelist1);
+    void *p1 = malloc(3900); // get chunk from free list
+    assert_addr_not_equal(p1,NULL);
+    Free_Header *freelist4 = get_bin_freelist(request2size(128)-request2size(110)-1);
+    void *p2 = malloc(110);   // should get chunk from bin[request2size(128)-request2size(99)-1]
+    assert_addr_not_equal(p2,NULL);
+    Free_Header *freelist2 = get_bin_freelist(request2size(128)-1);
+    assert_addr_not_equal(freelist1,freelist2);
+    assert_addr_equal(freelist2,NULL);
+    Free_Header *freelist3 = get_bin_freelist(request2size(128)-request2size(110)-1);
+    assert_addr_not_equal(freelist3,NULL);
+    assert_addr_not_equal(freelist3,freelist4);
+    free(p1);
 }
 
 void free_NULL() {
@@ -172,7 +192,8 @@ int main(int argc, char *argv[]) {
     test(malloc_word_size);
     test(one_malloc);
     test(two_malloc);
-    test(malloc_free_malloc);
+    test(bin_malloc_free_malloc);
+    test(bin_split_malloc);
     test(malloc_large_size_then_free);
     test(free_random);
     test(freelist_free_stale);
