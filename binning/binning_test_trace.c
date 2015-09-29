@@ -26,7 +26,6 @@ SOFTWARE.
 #include "replay.h"
 #include "binning.h"
 
-
 static void setup()		{ heap_init(); }
 static void teardown()	{ heap_shutdown();}
 
@@ -36,7 +35,6 @@ void replay_ansic_grammar_with_dparser() {
 }
 
 int main(int argc, char *argv[]) {
-    // TODO: currently must run from cmd-line: no way to set working dir in cmake?
     printf("converting addresses to indexes\n");
     system("python /Users/yuanyuan/zyy/master_project/folk/malloc/cunit/addr2index.py < /Users/yuanyuan/zyy/master_project/folk/malloc/cunit/ANSIC_MALLOC_FREE_TRACE.txt > /tmp/trace.txt");
     printf("simulating...\n");
