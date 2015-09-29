@@ -73,11 +73,24 @@ void test_bitmap_malloc_free() {
 	// check boundary tag
 	assert_equal(0xBBEEEEFF, *((U32 *)(WORD(addr100) - 1)));
 	assert_equal(14, ((U32 *)(WORD(addr100) - 1))[1]);
+	// test unsatisfiable request
+	assert_equal(NULL, malloc(4096));
 	///////////
 	// freeing
 	free(addr20);
-	// check bit board
 	assert_equal(0xFF0FFFC000000000, *((BITCHUNK *)g_pheap));
+	free(addr100);
+	assert_equal(0xFF00000000000000, *((BITCHUNK *)g_pheap));
+
+	// acquiring all memory
+	void *addrAll = malloc(4096 - 9 * 8);
+	assert_addr_equal(addrAll, WORD(g_pheap) + 8 + 1);
+	BITCHUNK *bitchunk = (BITCHUNK *)g_pheap;
+	// all bits should be turned on.
+	for (int i = 0; i < 8; ++i) assert_equal(bitchunk[i], ~0x0);
+	// the first word should contain the boundary tag.
+	assert_equal(0xBBEEEEFF, *((U32 *)(WORD(addrAll) - 1)));
+	assert_equal(504, ((U32 *)(WORD(addrAll) - 1))[1]);
 }
 
 int main(int argc, char *argv[]) {
