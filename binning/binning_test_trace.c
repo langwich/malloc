@@ -26,15 +26,9 @@ SOFTWARE.
 #include "replay.h"
 #include "binning.h"
 
-Heap_Info verify_heap() {
-    Heap_Info info = get_heap_info();
-    assert_equal(info.heap_size, DEFAULT_MAX_HEAP_SIZE);
-    assert_equal(info.heap_size, info.busy_size+info.free_size);
-    return info;
-}
 
 static void setup()		{ heap_init(); }
-static void teardown()	{ /*verify_heap()*/;heap_shutdown(); }
+static void teardown()	{ heap_shutdown();}
 
 void replay_ansic_grammar_with_dparser() {
     int result = replay_malloc("/tmp/trace.txt");

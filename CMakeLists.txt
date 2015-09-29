@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.3)
 project(malloc)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wall")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wall -g")
 
 # add a build target for the module
 # use debug mode switch to turn on/off debug mode
