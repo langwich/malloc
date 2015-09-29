@@ -27,20 +27,19 @@ SOFTWARE.
 
 #include <stddef.h>
 
-typedef unsigned long long      BITCHUNK;
+typedef unsigned long long      BITCHUNK;// one full chunk covers 512 bytes in the heap.
 typedef unsigned char           U1;
+typedef __uint32_t              U32;
 
+#define WORD(x)                 ((unsigned long long *)x)
+#define BITSET_NON              ((BITCHUNK) ~0x0)// we can never get that much memory
 #define BIT_NUM                 8
 #define WORD_SIZE               (sizeof(void *))
 #define ALIGN_MASK              (WORD_SIZE - 1)
-#define CHUNK_SIZE              (sizeof(BITCHUNK))
-#define CHUNK_SIZE_IN_BITS      (CHUNK_SIZE * BIT_NUM)
-#define CHUNK_ALIGN_MASK        (CHUNK_SIZE_IN_BITS - 1)
+#define CHUNK_SIZE              (sizeof(BITCHUNK))// usually it's the same as WORD_SIZE on 64-bit machines.
+#define CHK_IN_BIT              (CHUNK_SIZE * BIT_NUM)
 #define BC_ONE                  0xFFFFFFFFFFFFFFFF
 #define BC_LEFTMOST_MASK        0x8000000000000000
-
-#define ROUND_UP(n)             ((n & CHUNK_ALIGN_MASK) == 0 ? n : (n + CHUNK_SIZE_IN_BITS) & ~CHUNK_ALIGN_MASK)
-#define ROUND_DOWN(n)           ((((n + 1) & CHUNK_ALIGN_MASK) == 0) ? (n + 1) : (n & ~CHUNK_ALIGN_MASK))
 
 #define ALIGN_WORD_BOUNDARY(n)  ((n & ALIGN_MASK) == 0 ? n : (n + WORD_SIZE) & ~ALIGN_MASK)
 
@@ -57,10 +56,14 @@ typedef unsigned char           U1;
 #define LUP_ROW 256
 #define LUP_COL 8
 static int ff_lup[LUP_ROW][LUP_COL];
+static int lz_lup[LUP_ROW];
+static int tz_lup[LUP_ROW];
+
 /*
  * the initial masks with n leading 0s (from left).
  */
-static unsigned char n_leading0[8] = {0x7f, 0x3f, 0x1f, 0x0f, 0x07, 0x03, 0x01, 0x00};
+static unsigned char n_lz_mask[LUP_COL] = {0x7f, 0x3f, 0x1f, 0x0f, 0x07, 0x03, 0x01, 0x00};
+static unsigned char n_tz_mask[LUP_COL] = {0xfe, 0xfc, 0xf8, 0xf0, 0xe0, 0xc0, 0x80, 0x00};
 static BITCHUNK right_masks[65];
 static BITCHUNK left_masks[65];
 
@@ -73,9 +76,10 @@ typedef struct {
 } bitset;
 
 void bs_init(bitset *, size_t, void *);
-int bs_nrun(bitset *, size_t);
+size_t bs_nrun(bitset *, size_t);
 int bs_set1(bitset *, size_t, size_t);
 int bs_set0(bitset *, size_t, size_t);
+int bs_chk_scann(BITCHUNK, size_t);
 
 void bs_dump(BITCHUNK, int);
 

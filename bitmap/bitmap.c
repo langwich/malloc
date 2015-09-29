@@ -26,7 +26,6 @@ SOFTWARE.
 #include <morecore.h>
 
 #include "bitmap.h"
-#include "bitset.h"
 
 static void *g_pheap;
 static size_t g_heap_size;
@@ -40,7 +39,7 @@ void bitmap_init(size_t size) {
 	g_pheap = morecore(size);
 	g_heap_size = size;
 	// the bitset will "borrow" some heap space here for the bit "score-board".
-	bs_init(&g_bset, size / (CHUNK_SIZE_IN_BITS * WORD_SIZE) + 1, g_pheap);
+	bs_init(&g_bset, size / (CHK_IN_BIT * WORD_SIZE), g_pheap);
 }
 
 void bitmap_release() {
@@ -53,18 +52,25 @@ void bitmap_release() {
  * The size is round up to the word boundary.
  * NULL is returned when there is not enough memory.
  *
- * Algorithm:
- * During the scan, the program behave in two modes: cross mode
- * and non-cross mode. During cross mode, we are looking for a
- * run of n consecutive 0s cross the word boundary. And in
- * non-cross mode we expect to get our result within the current
- * word.
+ *  First word serve as the boundary.
+ *      32bit     32bit
+ * |===========+===========|=========
+ * | BBEEEEFF  +   size    | data...
+ * |===========+===========|=========
  */
 void *malloc(size_t size)
 {
 	size_t n = ALIGN_WORD_BOUNDARY(size);
-	int run_index = bs_nrun(&g_bset, n);
-	return g_pheap + run_index;
+
+	size_t run_index;
+	// +1 for the extra boundary tag
+	size_t num_bits = n / WORD_SIZE + 1;
+	if ((run_index = bs_nrun(&g_bset, num_bits)) == BITSET_NON) return NULL;
+	void *ptr = WORD(g_pheap) + run_index;
+	U32 *boundary = (U32 *) ptr;
+	boundary[0] = BOUNDARY_TAG;
+	boundary[1] = (U32) num_bits;
+	return WORD(ptr) + 1;
 }
 
 /*
@@ -73,7 +79,14 @@ void *malloc(size_t size)
  */
 void free(void *ptr)
 {
-
+	if (ptr == NULL) return;
+	U32 *boundary = (U32 *) (WORD(ptr) - 1);
+#ifdef DEBUG
+	if (BOUNDARY_TAG != boundary[0]) fprintf(stderr, "boundary tag corrupted\n");
+#endif
+	U32 num_bits = boundary[1];
+	size_t start_index = WORD(ptr) - 1 - WORD(g_pheap);
+	bs_set0(&g_bset, start_index, start_index + num_bits - 1);
 }
 
 #ifdef DEBUG
