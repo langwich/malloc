@@ -36,13 +36,13 @@ static Free_Header *nextfree(uint32_t size);
 static Free_Header *next_small_free(uint32_t size);
 
 void heap_init() {
-#ifdef DEBUG
-	printf("allocate heap size == %d\n", DEFAULT_MAX_HEAP_SIZE);
-	printf("sizeof(Busy_Header) == %zu\n", sizeof(Busy_Header));
-	printf("sizeof(Free_Header) == %zu\n", sizeof(Free_Header));
-	printf("BUSY_BIT == %x\n", BUSY_BIT);
-	printf("SIZEMASK == %x\n", SIZEMASK);
-#endif
+//#ifdef DEBUG
+//	printf("allocate heap size == %d\n", DEFAULT_MAX_HEAP_SIZE);
+//	printf("sizeof(Busy_Header) == %zu\n", sizeof(Busy_Header));
+//	printf("sizeof(Free_Header) == %zu\n", sizeof(Free_Header));
+//	printf("BUSY_BIT == %x\n", BUSY_BIT);
+//	printf("SIZEMASK == %x\n", SIZEMASK);
+//#endif
 	heap = morecore(DEFAULT_MAX_HEAP_SIZE);
 #ifdef DEBUG
 	if ( heap == NULL ) {
@@ -127,7 +127,7 @@ void free(void *p) {
 		if (q->size < freelist->size && freelist != NULL) {
 			Free_Header * p = freelist;
 			Free_Header * prev = NULL;
-			while (prev->size > q->size && p != NULL){
+			while (p->size > q->size && p != NULL){
 				prev = p;
 				p = p->next;
 			}

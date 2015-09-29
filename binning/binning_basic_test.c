@@ -138,21 +138,21 @@ void malloc_large_size_then_free() {
 }
 
 void bin_split_malloc(){
-    void *p = malloc(128); // get chunk from free list
+    void *p = malloc(1000); // get chunk from free list
     assert_addr_not_equal(p, NULL);
-    Free_Header *freelist = get_bin_freelist(request2size(128)-1);
+    Free_Header *freelist = get_bin_freelist(request2size(1000)-1);
     free(p); // free and add to bin
-    Free_Header *freelist1 = get_bin_freelist(request2size(128)-1);
+    Free_Header *freelist1 = get_bin_freelist(request2size(1000)-1);
     assert_addr_not_equal(freelist,freelist1);
-    void *p1 = malloc(3900); // get chunk from free list
+    void *p1 = malloc(99998890); // get chunk from free list
     assert_addr_not_equal(p1,NULL);
-    Free_Header *freelist4 = get_bin_freelist(request2size(128)-request2size(110)-1);
-    void *p2 = malloc(110);   // should get chunk from bin[request2size(128)-request2size(99)-1]
+    Free_Header *freelist4 = get_bin_freelist(request2size(1000)-request2size(512)-1);
+    void *p2 = malloc(512);   // should get chunk from bin[request2size(128)-request2size(99)-1]
     assert_addr_not_equal(p2,NULL);
-    Free_Header *freelist2 = get_bin_freelist(request2size(128)-1);
+    Free_Header *freelist2 = get_bin_freelist(request2size(1000)-1);
     assert_addr_not_equal(freelist1,freelist2);
     assert_addr_equal(freelist2,NULL);
-    Free_Header *freelist3 = get_bin_freelist(request2size(128)-request2size(110)-1);
+    Free_Header *freelist3 = get_bin_freelist(request2size(1000)-request2size(512)-1);
     assert_addr_not_equal(freelist3,NULL);
     assert_addr_not_equal(freelist3,freelist4);
     free(p1);
