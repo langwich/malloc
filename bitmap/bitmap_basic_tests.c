@@ -36,6 +36,7 @@ static void setup() {
 }
 
 static void teardown() {
+	assert_equal(verify_bit_score_board(), 1);
 	bitmap_release();
 }
 

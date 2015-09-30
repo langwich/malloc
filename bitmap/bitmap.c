@@ -104,7 +104,7 @@ void *bitmap_get_heap() {
 #endif
 
 #ifdef DEBUG
-void verify_bit_score_board() {
+int verify_bit_score_board() {
 	BITCHUNK *chk = WORD(g_pheap);
 	for (size_t bit_index = 0; bit_index < g_bset.m_nbc * CHK_IN_BIT; ++bit_index) {
 		// boundary tag
@@ -114,10 +114,10 @@ void verify_bit_score_board() {
 			size_t end_index = bit_index + len - 1;
 			if (!bs_contain_ones(&g_bset, bit_index, end_index)) {
 				fprintf(stderr, "verification failed, bitmap is in wrong status.\n");
-				return;
+				return 0;
 			}
 		}
 	}
-	fprintf(stderr, "verification of the bitmap succeeded.\n");
+	return 1;
 }
 #endif
