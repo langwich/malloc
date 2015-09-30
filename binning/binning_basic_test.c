@@ -133,11 +133,11 @@ void malloc_large_size_then_free() {
     free(p);
     Busy_Header *heap1 = get_heap_base();
     Free_Header *freelist2 = get_heap_freelist(); // free list after free,should back to status before malloc
-    assert_addr_equal(heap1,freelist2);
     assert_addr_equal(freelist,freelist2);
+    assert_addr_equal(heap1,freelist2);
 }
 
-void bin_split_malloc(){
+void bin_split_malloc_test(){
     void *p = malloc(1000); // get chunk from free list
     assert_addr_not_equal(p, NULL);
     Free_Header *freelist = get_bin_freelist(request2size(1000)-1);
@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
     test(one_malloc);
     test(two_malloc);
     test(bin_malloc_free_malloc);
-    test(bin_split_malloc);
+    test(bin_split_malloc_test);
     test(malloc_large_size_then_free);
     test(free_random);
     test(freelist_free_stale);
