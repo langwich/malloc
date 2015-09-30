@@ -26,6 +26,7 @@ SOFTWARE.
 #define MALLOC_BITSET_H
 
 #include <stddef.h>
+#include <stdbool.h>
 
 typedef unsigned long long      BITCHUNK;// one full chunk covers 512 bytes in the heap.
 typedef unsigned char           U1;
@@ -80,6 +81,7 @@ size_t bs_nrun(bitset *, size_t);
 int bs_set1(bitset *, size_t, size_t);
 int bs_set0(bitset *, size_t, size_t);
 int bs_chk_scann(BITCHUNK, size_t);
+int bs_contain_ones(bitset *, size_t, size_t);
 
 void bs_dump(BITCHUNK, int);
 
