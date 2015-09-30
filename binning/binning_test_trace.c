@@ -44,7 +44,7 @@ void replay_ansic_grammar_with_dparser() {
 
 int main(int argc, char *argv[]) {
     printf("converting addresses to indexes\n");
-    system("python /Users/yuanyuan/zyy/master_project/folk/malloc/cunit/addr2index.py < /Users/yuanyuan/zyy/master_project/folk/malloc/cunit/ANSIC_MALLOC_FREE_TRACE.txt > /tmp/trace.txt");
+    system("python ../cunit/addr2index.py < ../cunit/ANSIC_MALLOC_FREE_TRACE.txt > /tmp/trace.txt");
     printf("simulating...\n");
 
     cunit_setup = setup;
