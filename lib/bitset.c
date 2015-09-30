@@ -29,26 +29,14 @@ SOFTWARE.
 static void init_lups();
 static void init_masks();
 
+// in Core i7 processors the LZCNT instruction
+// is implemented using BSR, thus its the index
+// of the last set bit.
+#define bs_lzcnt(bchk) (bchk ? CHK_IN_BIT - 1 - __builtin_clzll(bchk) : CHK_IN_BIT)
+// in Core i7 processors this intrinsic is translated to
+// BSF, thus gives the first index of a set bit.
+#define bs_tzcnt(bchk) (bchk ? __builtin_ctzll(bchk) : CHK_IN_BIT)
 
-static inline size_t bs_lzcnt(BITCHUNK bchk) {
-	// in Core i7 processors the LZCNT instruction
-	// is implemented using BSR, thus its the index
-	// of the first set bit.
-
-	// TODO currently the clang flag is turned for this intrinsic.
-	// TODO not actually using LZCNT instruction.
-	return bchk ? __builtin_clzll(bchk) : CHK_IN_BIT;
-}
-
-static inline size_t bs_tzcnt(BITCHUNK bchk) {
-	// in Core i7 processors this intrinsic is translated to
-	// BSF, thus gives the first index of a set bit.
-
-	// TODO currently the clang flag is turned for this intrinsic.
-	// TODO not actually using LZCNT instruction. and it has a weird
-	// TODO optimization when using clang, try with gcc later.
-	return bchk ? __builtin_ctzll(bchk) : CHK_IN_BIT;
-}
 
 static inline size_t bs_popcnt(BITCHUNK bchk) {
 	return CHK_IN_BIT - __builtin_popcountll(bchk);
@@ -170,7 +158,8 @@ int bs_set1(bitset *bs, size_t lo, size_t hi) {
 	size_t lo_chk = lo / CHK_IN_BIT;
 	size_t hi_chk = hi / CHK_IN_BIT;
 	if (lo_chk == hi_chk) {
-		bs->m_bc[lo_chk] |= ~(right_masks[(lo_chk + 1) * CHK_IN_BIT - lo] ^ left_masks[hi + 1 - hi_chk * CHK_IN_BIT]);
+		bs->m_bc[lo_chk] |= ~(right_masks[(lo_chk + 1) * CHK_IN_BIT - lo] ^
+				left_masks[hi + 1 - hi_chk * CHK_IN_BIT]);
 	}
 	else {
 		size_t next_chk = lo_chk + 1;
@@ -188,7 +177,8 @@ int bs_set0(bitset *bs, size_t lo, size_t hi) {
 	size_t lo_chk = lo / CHK_IN_BIT;
 	size_t hi_chk = hi / CHK_IN_BIT;
 	if (lo_chk == hi_chk) {
-		bs->m_bc[lo_chk] &= (right_masks[(lo_chk + 1) * CHK_IN_BIT - lo] ^ left_masks[hi + 1 - hi_chk * CHK_IN_BIT]);
+		bs->m_bc[lo_chk] &= (right_masks[(lo_chk + 1) * CHK_IN_BIT - lo] ^
+				left_masks[hi + 1 - hi_chk * CHK_IN_BIT]);
 	}
 	else {
 		size_t next_chk = lo_chk + 1;
@@ -213,6 +203,31 @@ int bs_chk_scann(BITCHUNK bchk, size_t n) {
 	}
 	return i;
 }
+
+/*
+ * Verify the range [start,end] (index starts from 0)
+ * contains all 1s. returns 1 for true and 0 for false.
+ */
+#ifdef DEBUG
+int bs_contain_ones(bitset *bs, size_t lo, size_t hi) {
+	size_t lo_chk = lo / CHK_IN_BIT;
+	size_t hi_chk = hi / CHK_IN_BIT;
+	if (lo_chk == hi_chk) {
+		BITCHUNK mask = ~(right_masks[(lo_chk + 1) * CHK_IN_BIT - lo] ^
+		                  left_masks[hi + 1 - hi_chk * CHK_IN_BIT]);
+		return (bs->m_bc[lo_chk] & mask) == mask;
+	}
+	else {
+		size_t next_chk = lo_chk + 1;
+		while (next_chk < hi_chk) if (bs->m_bc[next_chk++] != BC_ONE) return 0;
+		BITCHUNK right_mask = right_masks[(lo_chk + 1) * CHK_IN_BIT - lo];
+		BITCHUNK left_mask = left_masks[hi + 1 - hi_chk * CHK_IN_BIT];
+		if ((bs->m_bc[lo_chk] & right_mask) != right_mask ||
+				(bs->m_bc[hi_chk] & left_mask)!= left_mask) return 0;
+	}
+	return 1;
+}
+#endif
 
 static void init_lups() {
 	for (int i = 0; i < LUP_ROW; ++i) {

@@ -24,6 +24,7 @@ SOFTWARE.
 
 #include <stddef.h>
 #include <morecore.h>
+#include <bitset.h>
 
 #include "bitmap.h"
 
@@ -82,15 +83,41 @@ void free(void *ptr)
 	if (ptr == NULL) return;
 	U32 *boundary = (U32 *) (WORD(ptr) - 1);
 #ifdef DEBUG
-	if (BOUNDARY_TAG != boundary[0]) fprintf(stderr, "boundary tag corrupted\n");
+	if (BOUNDARY_TAG != boundary[0]) {
+		fprintf(stderr, "boundary tag corrupted for address %p, have you freed it before?\n", ptr);
+		// returning here in case the free are called twice
+		// on the same memory address
+		return;
+	}
 #endif
 	U32 num_bits = boundary[1];
 	size_t start_index = WORD(ptr) - 1 - WORD(g_pheap);
 	bs_set0(&g_bset, start_index, start_index + num_bits - 1);
+	// remove boundary tag
+	boundary[0] = 0;
 }
 
 #ifdef DEBUG
 void *bitmap_get_heap() {
 	return g_pheap;
+}
+#endif
+
+#ifdef DEBUG
+int verify_bit_score_board() {
+	BITCHUNK *chk = WORD(g_pheap);
+	for (size_t bit_index = 0; bit_index < g_bset.m_nbc * CHK_IN_BIT; ++bit_index) {
+		// boundary tag
+		U32 tag = ((U32 *)(&chk[bit_index]))[0];
+		if (tag == BOUNDARY_TAG) {
+			U32 len = ((U32 *)(&chk[bit_index]))[1];
+			size_t end_index = bit_index + len - 1;
+			if (!bs_contain_ones(&g_bset, bit_index, end_index)) {
+				fprintf(stderr, "verification failed, bitmap is in wrong status.\n");
+				return 0;
+			}
+		}
+	}
+	return 1;
 }
 #endif
