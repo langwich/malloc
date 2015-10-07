@@ -82,14 +82,14 @@ void free(void *ptr)
 {
 	if (ptr == NULL) return;
 	U32 *boundary = (U32 *) (WORD(ptr) - 1);
-#ifdef DEBUG
 	if (BOUNDARY_TAG != boundary[0]) {
+#ifdef DEBUG
 		fprintf(stderr, "boundary tag corrupted for address %p, have you freed it before?\n", ptr);
+#endif
 		// returning here in case the free are called twice
 		// on the same memory address
 		return;
 	}
-#endif
 	U32 num_bits = boundary[1];
 	size_t start_index = WORD(ptr) - 1 - WORD(g_pheap);
 	bs_set0(&g_bset, start_index, start_index + num_bits - 1);

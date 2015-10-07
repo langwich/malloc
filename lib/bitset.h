@@ -78,8 +78,8 @@ typedef struct {
 
 void bs_init(bitset *, size_t, void *);
 size_t bs_nrun(bitset *, size_t);
-int bs_set1(bitset *, size_t, size_t);
-int bs_set0(bitset *, size_t, size_t);
+void bs_set1(bitset *, size_t, size_t);
+void bs_set0(bitset *, size_t, size_t);
 int bs_chk_scann(BITCHUNK, size_t);
 int bs_contain_ones(bitset *, size_t, size_t);
 

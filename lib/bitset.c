@@ -154,7 +154,7 @@ size_t bs_nrun(bitset *bs, size_t n) {
  * Sets the bits in [lo,hi] to 1. lo is the less significant bit.
  * lo and hi are bit indices and are *0-BASED*
  */
-int bs_set1(bitset *bs, size_t lo, size_t hi) {
+void bs_set1(bitset *bs, size_t lo, size_t hi) {
 	size_t lo_chk = lo / CHK_IN_BIT;
 	size_t hi_chk = hi / CHK_IN_BIT;
 	if (lo_chk == hi_chk) {
@@ -167,13 +167,12 @@ int bs_set1(bitset *bs, size_t lo, size_t hi) {
 		bs->m_bc[lo_chk] |= right_masks[(lo_chk + 1) * CHK_IN_BIT - lo];
 		bs->m_bc[hi_chk] |= left_masks[hi + 1 - hi_chk * CHK_IN_BIT];
 	}
-	return 0;
 }
 /*
  * Sets the bits in [lo,hi] to 0. lo is the less significant bit
  * lo and hi are bit indices and are *0-BASED*
  */
-int bs_set0(bitset *bs, size_t lo, size_t hi) {
+void bs_set0(bitset *bs, size_t lo, size_t hi) {
 	size_t lo_chk = lo / CHK_IN_BIT;
 	size_t hi_chk = hi / CHK_IN_BIT;
 	if (lo_chk == hi_chk) {
@@ -186,8 +185,6 @@ int bs_set0(bitset *bs, size_t lo, size_t hi) {
 		bs->m_bc[lo_chk] &= ~right_masks[(lo_chk + 1) * CHK_IN_BIT - lo];
 		bs->m_bc[hi_chk] &= ~left_masks[hi + 1 - hi_chk * CHK_IN_BIT];
 	}
-
-	return 0;
 }
 
 /*
