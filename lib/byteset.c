@@ -73,3 +73,10 @@ size_t byset_nrun(byset *pbys, size_t n) {
 	if (offset != NOT_FOUND) byset_set1(pbys, offset, offset + n - 1);
 	return offset;
 }
+
+int byset_contain_ones(byset *bys, size_t lo, size_t hi) {
+	for (size_t i = lo; i <= hi; ++i) {
+		if (bys->bytes[i] != '1') return 0;
+	}
+	return 1;
+}

@@ -41,6 +41,7 @@ static void setup() {
 }
 
 static void teardown() {
+	assert_equal(verify_byte_score_board(), 1);
 	bytemap_release();
 }
 
@@ -129,8 +130,8 @@ int main(int argc, char *argv[]) {
 	cunit_setup = setup;
 	cunit_teardown = teardown;
 
-//	test(test_bytemap_init);
-//	test(test_bytemap_malloc);
+	test(test_bytemap_init);
+	test(test_bytemap_malloc);
 	test(test_bytemap_malloc_free);
 
 	return 0;

@@ -45,6 +45,7 @@ typedef struct {
 
 void byset_init(byset *, size_t, void *);
 size_t byset_nrun(byset *, size_t);
+int byset_contain_ones(byset *, size_t, size_t);
 
 /*
  * Set the bytes in [lo,hi] (both inclusive) to 1.

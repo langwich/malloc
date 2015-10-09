@@ -34,5 +34,6 @@ void bytemap_init(size_t size);
 void bytemap_release();
 void *malloc(size_t);
 void free(void *);
+int verify_byte_score_board();
 
 #endif //MALLOC_BYTEMAP_H

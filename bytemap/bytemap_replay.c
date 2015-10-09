@@ -33,7 +33,7 @@ SOFTWARE.
 const size_t HEAP_SIZE = 1000000000; // try 1G
 
 static void setup()		{ bytemap_init(HEAP_SIZE); }
-static void teardown()	{ /*verify_bit_score_board();*/bytemap_release(); }
+static void teardown()	{ verify_byte_score_board();bytemap_release(); }
 
 void replay_ansic_grammar_with_dparser() {
 	int result = replay_malloc("/tmp/trace.txt");

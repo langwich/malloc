@@ -30,6 +30,8 @@ static byset g_bys;
 static void *g_pheap;
 static size_t g_heap_size;
 
+
+
 /*
  * Allocate size bytes from the arena. Size will
  * be rounded up to word boundary.
@@ -86,3 +88,22 @@ void *bytemap_get_heap() {
 	return g_pheap;
 }
 #endif
+
+#ifdef DEBUG
+int verify_byte_score_board() {
+	for (size_t byte_index = 0; byte_index < g_bys.num_words; ++byte_index) {
+		// boundary tag
+		U32 tag = ((U32 *)(&WORD(g_pheap)[byte_index]))[0];
+		if (tag == BOUNDARY_TAG) {
+			U32 len = ((U32 *)(&WORD(g_pheap)[byte_index]))[1];
+			size_t end_index = byte_index + len - 1;
+			if (!byset_contain_ones(&g_bys, byte_index, end_index)) {
+				fprintf(stderr, "verification failed, bitmap is in wrong status.\n");
+				return 0;
+			}
+		}
+	}
+	return 1;
+}
+#endif
+
