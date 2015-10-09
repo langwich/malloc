@@ -23,10 +23,8 @@ SOFTWARE.
 */
 
 /*
- * 60ms - 64ms with -mpopcnt -mlzcnt turned on similar result without
+ * 60s - 64s with -mpopcnt -mlzcnt turned on similar result without
  * those intrinsics.
- *
- *
  */
 
 #include <stddef.h>
@@ -104,13 +102,10 @@ void free(void *ptr)
 	boundary[0] = 0;
 }
 
-#ifdef DEBUG
 void *bitmap_get_heap() {
 	return g_pheap;
 }
-#endif
 
-#ifdef DEBUG
 int verify_bit_score_board() {
 	BITCHUNK *chk = WORD(g_pheap);
 	for (size_t bit_index = 0; bit_index < g_bset.m_nbc * CHK_IN_BIT; ++bit_index) {
@@ -120,11 +115,22 @@ int verify_bit_score_board() {
 			U32 len = ((U32 *)(&chk[bit_index]))[1];
 			size_t end_index = bit_index + len - 1;
 			if (!bs_contain_ones(&g_bset, bit_index, end_index)) {
+#ifdef DEBUG
 				fprintf(stderr, "verification failed, bitmap is in wrong status.\n");
+#endif
 				return 0;
 			}
 		}
 	}
 	return 1;
 }
+
+int print_profile_info() {
+#ifdef DEBUG
+	profile_info profile = get_profile_info();
+
+	fprintf(stderr, "non_cross: %ld\nleading: %ld\ntrailing: %ld\n",
+	        profile.non_cross, profile.leading, profile.trailing);
 #endif
+	return 0;
+}

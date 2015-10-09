@@ -30,6 +30,10 @@ static byset g_bys;
 static void *g_pheap;
 static size_t g_heap_size;
 
+/*
+ * The naive implementation took 3968s to finish
+ * the simulation trace.
+ */
 
 
 /*

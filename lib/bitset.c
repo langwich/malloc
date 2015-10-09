@@ -24,6 +24,7 @@ SOFTWARE.
 
 #include <stddef.h>
 #include <unistd.h>
+#include <tic.h>
 #include "bitset.h"
 
 /*
@@ -44,7 +45,7 @@ static int lup[LUP_ROW][LUP_COL];
  * the initial masks with n leading 0s (from left).
  */
 static unsigned char n_lz_mask[LUP_COL] = {0x7f, 0x3f, 0x1f, 0x0f, 0x07, 0x03, 0x01, 0x00};
-static unsigned char n_tz_mask[LUP_COL] = {0xfe, 0xfc, 0xf8, 0xf0, 0xe0, 0xc0, 0x80, 0x00};
+//static unsigned char n_tz_mask[LUP_COL] = {0xfe, 0xfc, 0xf8, 0xf0, 0xe0, 0xc0, 0x80, 0x00};
 static BITCHUNK right_masks[65];
 static BITCHUNK left_masks[65];
 
@@ -64,6 +65,8 @@ static inline size_t bs_popcnt(BITCHUNK bchk) {
 	return CHK_IN_BIT - __builtin_popcountll(bchk);
 }
 
+// used to track profiling information
+profile_info profile = {0};
 
 /*
  * Initializes a bitset with n chunks.
@@ -102,6 +105,7 @@ void bs_dump(BITCHUNK bc, int fd) {
  * non-cross mode we expect to get our result within the current
  * word.
  */
+
 size_t bs_nrun(bitset *bs, size_t n) {
 	// although start_index starts from 0, but it should always
 	// skip the first few bits set for the bit score board itself.
@@ -119,6 +123,9 @@ size_t bs_nrun(bitset *bs, size_t n) {
 		BITCHUNK cur_bchk = bs->m_bc[cur_chunk_index];
 		if (!remaining) break;
 		if (1 == mode) {
+#ifdef DEBUG
+			profile.leading++;
+#endif
 			size_t lzcnt = bs_lzcnt(cur_bchk);
 			if (lzcnt < remaining) {
 				if (CHK_IN_BIT == lzcnt) {
@@ -140,6 +147,9 @@ size_t bs_nrun(bitset *bs, size_t n) {
 			}
 		}
 		else if (2 == mode){
+#ifdef DEBUG
+			profile.trailing++;
+#endif
 			// trailing mode could only happen when we just
 			// started the crossing mode.
 			size_t tzcnt = bs_tzcnt(cur_bchk);
@@ -157,6 +167,9 @@ size_t bs_nrun(bitset *bs, size_t n) {
 			cur_chunk_index++;
 		}
 		else {// non crossing mode
+#ifdef DEBUG
+			profile.non_cross++;
+#endif
 			int index = bs_chk_scann(cur_bchk, n);
 			if (index >= 0) {
 				start_index = cur_chunk_index * CHK_IN_BIT + index;
@@ -281,4 +294,8 @@ static void init_masks() {
 	for (int i = 1; i < 65; ++i) {
 		left_masks[i] = (left_masks[i-1] >> 1) | BC_LEFTMOST_MASK;
 	}
+}
+
+profile_info get_profile_info() {
+	return profile;
 }
