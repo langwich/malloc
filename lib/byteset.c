@@ -42,6 +42,7 @@ void byset_init(byset *pbys, size_t n, void *pheap) {
 /*
  * Since the pattern is really simple, a naive string matcher will suffice.
  * The match time is O(n) (n is the length of the search base.
+ * This method traverses each byte, which is extremely slow.
  */
 static size_t naive_string_matcher(const char *s, size_t s_len, const char p, size_t n) {
 	size_t remain = n;
@@ -67,7 +68,7 @@ static size_t naive_string_matcher(const char *s, size_t s_len, const char p, si
 size_t byset_nrun(byset *pbys, size_t n) {
 	size_t offset;
 #ifdef NAIVE
-	offset =  naive_string_matcher(pbys->bytes, pbys->num_words, '0', n);
+	offset = naive_string_matcher(pbys->bytes, pbys->num_words, '0', n);
 #endif
 	if (offset != NOT_FOUND) byset_set1(pbys, offset, offset + n - 1);
 	return offset;
