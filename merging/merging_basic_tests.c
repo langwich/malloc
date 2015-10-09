@@ -167,6 +167,11 @@ void  three_malloc(){
     Busy_Header *b2_next = find_next(b_2);
     assert_addr_equal(find_next(b_2),b_3);     //b_3 is after b_2
     assert_equal(chunksize(b_3), request2size(300));
+
+    Heap_Info info = verify_heap();
+    assert_equal(info.busy, 3);
+    assert_equal(info.free, 1);
+    assert_equal(info.free_size, HEAP_SIZE - info.busy_size);
 }
 
 //free the chunk in the middle of three busy chunks
@@ -210,6 +215,10 @@ void merge_with_head() {
 	assert_addr_not_equal(freelist1, freelist0);
 	assert_addr_not_equal(freelist1->next, freelist0);
     assert_addr_equal(freelist1->next, next);
+    assert_addr_equal(freelist1->prev, NULL);
+    assert_addr_equal(next->next, NULL);
+    assert_addr_equal(next->prev, freelist1);
+
 	Heap_Info info = verify_heap();
 	assert_equal(info.busy, 1);
 	assert_equal(info.free, 2);
@@ -218,7 +227,7 @@ void merge_with_head() {
     assert_equal(find_next(find_next(freelist1)), freelist1->next);
 }
 
-//three consecutive chunks allocated
+//five consecutive chunks allocated
 void  five_malloc(){
     void *p = get_heap_base();
     Busy_Header *b_1 = malloc(100);
@@ -234,12 +243,17 @@ void  five_malloc(){
     assert_equal(chunksize(b_3), request2size(300));
     Busy_Header *b_4 = malloc(400);
     Busy_Header *b3_next = find_next(b_3);
-    assert_addr_equal(find_next(b_3),b_4);     //b_3 is after b_2
+    assert_addr_equal(find_next(b_3),b_4);     //b_4 is after b_3
     assert_equal(chunksize(b_4), request2size(400));
     Busy_Header *b_5 = malloc(500);
     Busy_Header *b4_next = find_next(b_4);
-    assert_addr_equal(find_next(b_4),b_5);     //b_3 is after b_2
+    assert_addr_equal(find_next(b_4),b_5);     //b_5 is after b_4
     assert_equal(chunksize(b_5), request2size(500));
+
+    Heap_Info info = verify_heap();
+    assert_equal(info.busy, 5);
+    assert_equal(info.free, 1);
+    assert_equal(info.free_size, HEAP_SIZE - info.busy_size);
 }
 
 //free the first chunk, then free last chunk to merge with the end of free list
@@ -258,6 +272,9 @@ void merge_with_end (){
     Free_Header *freelist1 = get_freelist();
     assert_addr_equal(freelist1, b_3);
     assert_addr_equal(freelist1->next, b_1);
+    assert_addr_equal(freelist1->prev, NULL);
+    assert_addr_equal(freelist1->next->prev, freelist1);
+    assert_addr_equal(freelist1->next->next, NULL);
 
     Heap_Info info = verify_heap();
     assert_equal(info.busy, 1);
@@ -284,18 +301,33 @@ void merge_with_middle (){
 
     free(b_4);
     free(b_2);
-    Free_Header *freelist0 = get_freelist();  //get the new freelist at b_2
+    Free_Header *freelist0 = get_freelist();  //get the new freelist at b_2->b_4->after b_5
+    Free_Header *last = find_next(b_5);
     assert_addr_equal(freelist0, b_2);
     assert_addr_equal(freelist0->next, b_4);
-    assert_addr_equal(freelist0->next->next, find_next(b_5));
+    assert_addr_equal(freelist0->prev, NULL);
+    assert_addr_equal(((Free_Header*)b_4) ->next, last);
+    assert_addr_equal(((Free_Header*)b_4) ->prev, b_2);
+    assert_addr_equal(last->next, NULL);
+    assert_addr_equal(last->prev, b_4);
 
     free(b_3); //merge with b_4
     Free_Header *freelist1 = get_freelist(); //get new free list at b_3;
     assert_addr_equal(freelist1, b_3);
     assert_equal(freelist1->size & SIZEMASK, size_3 + size_4);
-    assert_addr_equal(freelist1->next, freelist0);
-    assert_addr_equal(freelist0->next, find_next(b_5));
 
+    assert_addr_equal(freelist1->next, b_2); //freelist1 ->freelist0->last
+    assert_addr_equal(freelist1->prev, NULL);
+    assert_addr_equal(freelist0->next, last);
+    assert_addr_equal(freelist0->prev, freelist1);
+    assert_addr_equal(last->next, NULL);
+    assert_addr_equal(last->prev, freelist0);
+
+    Heap_Info info = verify_heap();
+    assert_equal(info.busy, 2);
+    assert_equal(info.free, 3);
+    assert_equal(info.free_size, HEAP_SIZE - info.busy_size);
+    assert_equal(freelist1->next->size + freelist0->next->size, info.free_size-freelist1->size);
 }
 
 
@@ -332,9 +364,9 @@ int main(int argc, char *argv[]) {
 	test(free_stale);
 	test(malloc_then_free);
     test(three_malloc);
+    test(five_malloc);
 	test(free_without_merging);
 	test(merge_with_head);
     test(merge_with_end);
-    test(five_malloc);
     test(merge_with_middle);
 }

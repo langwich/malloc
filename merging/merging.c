@@ -131,9 +131,8 @@ void free(void *p) {
 
     }else{
         q->next = heap.freelist;
-        heap.freelist->prev = q;
     }
-
+    heap.freelist->prev = q;
     q->prev = NULL;
     q->size &= SIZEMASK; // turn off busy bit
     heap.freelist = q;
