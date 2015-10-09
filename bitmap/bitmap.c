@@ -22,6 +22,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+/*
+ * 60ms - 64ms with -mpopcnt -mlzcnt turned on similar result without
+ * those intrinsics.
+ *
+ *
+ */
+
 #include <stddef.h>
 #include <morecore.h>
 #include <bitset.h>
