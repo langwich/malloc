@@ -33,15 +33,16 @@ const size_t HEAP_SIZE = 1000000000; // try 1G
 extern void freelist_init(uint32_t max_heap_size);
 extern void freelist_shutdown();
 
-Heap_Info verify_heap() {
+/*Heap_Info verify_heap() {
     Heap_Info info = get_heap_info();
     assert_equal(info.heap_size, HEAP_SIZE);
     assert_equal(info.heap_size, info.busy_size+info.free_size);
     return info;
-}
+}*/
 
 static void setup()		{ freelist_init(HEAP_SIZE); }
-static void teardown()	{ verify_heap(); freelist_shutdown(); }
+static void teardown()	{ //verify_heap();
+ freelist_shutdown(); }
 
 void replay_ansic_grammar_with_dparser() {
     int result = replay_malloc("/tmp/trace.txt");

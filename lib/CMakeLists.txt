@@ -11,3 +11,6 @@ target_link_libraries(${MODULE_NAME} cunit)
 set_target_properties(${MODULE_NAME} PROPERTIES
 COMPILE_FLAGS "-mpopcnt -mlzcnt -O0 -DDEBUG")
 ADD_TEST_TARGET(bitset_basic_tests ${MODULE_NAME})
+
+cmake_minimum_required(VERSION 3.2)
+project(malloc)
