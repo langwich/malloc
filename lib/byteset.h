@@ -22,47 +22,42 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <cunit.h>
-#include <time.h>
+#ifndef MALLOC_BYTESET_H
+#define MALLOC_BYTESET_H
 
-#include "replay.h"
-#include "bitmap.h"
+#include <stddef.h>
+#include <string.h>
 
-const size_t HEAP_SIZE = 1000000000; // try 1G
+typedef unsigned char           U1;
+typedef __uint32_t              U32;
 
-static void setup()		{ bitmap_init(HEAP_SIZE); }
-static void teardown()	{
-	assert_equal(verify_bit_score_board(), 1);
-	print_profile_info();
-	bitmap_release();
+#define WORD_SIZE       (sizeof(void *))
+#define NOT_FOUND       ((size_t)~0x0)
+#define ALIGN_MASK      (WORD_SIZE - 1)
+
+#define WORD(x)                 ((unsigned long long *)x)
+#define ALIGN_WORD_BOUNDARY(n)  ((n & ALIGN_MASK) == 0 ? n : (n + WORD_SIZE) & ~ALIGN_MASK)
+
+typedef struct {
+	size_t num_words;
+	char *bytes;
+} byset;
+
+void byset_init(byset *, size_t, void *);
+size_t byset_nrun(byset *, size_t);
+int byset_contain_ones(byset *, size_t, size_t);
+
+/*
+ * Set the bytes in [lo,hi] (both inclusive) to 1.
+ */
+static inline void byset_set1(byset *pbys, size_t lo, size_t hi) {
+	memset(pbys->bytes + lo, '1', hi - lo + 1);
+}
+/*
+ * Set the bytes in [lo,hi] (both inclusive) to 0.
+ */
+static inline void byset_set0(byset *pbys, size_t lo, size_t hi) {
+	memset(pbys->bytes + lo, '0', hi - lo + 1);
 }
 
-
-
-void replay_ansic_grammar_with_dparser() {
-	int result = replay_malloc("/tmp/trace.txt");
-	assert_equal(0, result);
-}
-
-int main(int argc, char *argv[]) {
-	// TODO: currently must run from cmd-line: no way to set working dir in cmake?
-	printf("converting addresses to indexes\n");
-	system("python ../cunit/addr2index.py < ../cunit/ANSIC_MALLOC_FREE_TRACE.txt > /tmp/trace.txt");
-	printf("simulating...\n");
-
-	cunit_setup = setup;
-	cunit_teardown = teardown;
-
-	bitmap_init(HEAP_SIZE);
-	{
-		time_t start = time(NULL);
-		test(replay_ansic_grammar_with_dparser);
-		time_t stop = time(NULL);
-
-		fprintf(stderr, "simulation took %ldms\n", (stop-start));
-	}
-
-	return 0;
-}
+#endif //MALLOC_BYTESET_H

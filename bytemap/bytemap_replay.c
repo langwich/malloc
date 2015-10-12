@@ -28,18 +28,12 @@ SOFTWARE.
 #include <time.h>
 
 #include "replay.h"
-#include "bitmap.h"
+#include "bytemap.h"
 
 const size_t HEAP_SIZE = 1000000000; // try 1G
 
-static void setup()		{ bitmap_init(HEAP_SIZE); }
-static void teardown()	{
-	assert_equal(verify_bit_score_board(), 1);
-	print_profile_info();
-	bitmap_release();
-}
-
-
+static void setup()		{ bytemap_init(HEAP_SIZE); }
+static void teardown()	{ verify_byte_score_board();bytemap_release(); }
 
 void replay_ansic_grammar_with_dparser() {
 	int result = replay_malloc("/tmp/trace.txt");
@@ -55,7 +49,7 @@ int main(int argc, char *argv[]) {
 	cunit_setup = setup;
 	cunit_teardown = teardown;
 
-	bitmap_init(HEAP_SIZE);
+	bytemap_init(HEAP_SIZE);
 	{
 		time_t start = time(NULL);
 		test(replay_ansic_grammar_with_dparser);
