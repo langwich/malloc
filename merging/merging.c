@@ -112,90 +112,74 @@ void free(void *p) {
 
     //check if the following chunk is free
     Free_Header *f = find_next(q);
-    if ( !(f->size & BUSY_BIT) ) {   //if busy bit is 0, then merge
-        q->size += f->size;
-        q->prev = NULL;  //q will be the head
-        //f is both head and tail of the freelist
-        if(f->prev == NULL && f->next == NULL) {
-            q->next  = NULL;
-/*#ifdef DEBUG
-            f = q;
-            while(f != NULL){
-                printf("merge with only node");
-                printf("%p->", f);
-                f = f->next;
-            }
-#endif*/
-        }
-        //f is the head but not the tail of the freelist
-        else if (f->prev == NULL && f->next != NULL) {
-            q->next = f->next;
-            f->next->prev = q;
-/*#ifdef DEBUG
-            f = q;
-            while(f != NULL){
-                printf("merge with head not tail");
-                printf("%p->", f);
-                f = f->next;
-            }
-#endif*/
-        }
-        //f is the tail but not the head of the freelist
-        else if (f->prev != NULL && f->next == NULL) {
-            q->next = heap.freelist;
-            heap.freelist->prev = q;
-            f->prev->next = NULL;
-/*#ifdef DEBUG
-            f = q;
-            while(f != NULL){
-                printf("merge with tail not head");
-                printf("%p->", f);
-                f = f->next;
-            }
-#endif*/
-        }
-        //f is neither head nor tail of the freelist
-        else {
-            q->next = heap.freelist;
-            heap.freelist->prev = q;
-            f->prev->next = f->next;
-            f->next->prev = f->prev;
-/*            //check infinite loop
-#ifdef DEBUG
-            f = q;
-            while(f != NULL){
-                printf("merge in the middle");
-                printf("%p->", f);
-                f = f->next;
-            }
-#endif*/
-        }
-
-    }else{
+    if ( !(f->size & BUSY_BIT) ) {   //if next chunk is free, merge
+        merge(q, f);
+    }else{                //if next chunk is busy, simply add q to the head
         q->next = heap.freelist;
         q->prev = NULL;
         heap.freelist->prev = q;
 /*#ifdef DEBUG
-        //check infinite loop
-        f = q;
-        while(f != NULL){
-            printf("no merge");
-            printf("%p->", f);
-            f = f->next;
-        }
+        check_infinite_loop(q, "no merge");
 #endif*/
     }
     heap.freelist = q; //set to head
 }
 
+void merge(Free_Header *q, Free_Header *f){
+    q->size += f->size;
+    q->prev = NULL;  //q will be the head
+    //f is both head and tail of the freelist
+    if(f->prev == NULL && f->next == NULL) {
+        q->next  = NULL;
+/*#ifdef DEBUG
+        check_infinite_loop(q, "merge with single node");
+#endif*/
+    }
+    //f is the head but not the tail of the freelist
+    else if (f->prev == NULL && f->next != NULL) {
+        q->next = f->next;
+        f->next->prev = q;
+/*#ifdef DEBUG
+        check_infinite_loop(q, "merge with head);
+#endif*/
+    }
+    //f is the tail but not the head of the freelist
+    else if (f->prev != NULL && f->next == NULL) {
+        q->next = heap.freelist;
+        heap.freelist->prev = q;
+        f->prev->next = NULL;
+/*#ifdef DEBUG
+        check_infinite_loop(q, "merge with tail");
+#endif*/
+    }
+    //f is neither head nor tail of the freelist
+    else {
+        q->next = heap.freelist;
+        heap.freelist->prev = q;
+        f->prev->next = f->next;
+        f->next->prev = f->prev;
+/*#ifdef DEBUG
+        check_infinite_loop(q, "merge with a node in the middle");
+#endif*/
+    }
+}
+
+//find the following chunk, regardless of busy or free
 void* find_next(void* p){
-    Busy_Header *b = (Busy_Header *) p;  // cast input pointer to busy
+    Busy_Header *b = (Busy_Header *) p;
     uint32_t size = b->size & SIZEMASK;
     Busy_Header *f = (Busy_Header *) ((char *)b + size);
-    //why didn't the following commented lines work?
-    //uint64_t follower =  (((uint64_t)b ^ size) | (((uint64_t) b & size) <<1));   // find address of the following chunk
-    //Busy_Header *f = (Busy_Header *) follower;  //cast the following chunk to busy header
     return f;
+}
+
+//This is for debug purpose
+void check_infinite_loop(Free_Header *f, char *msg ){
+    while(f != NULL){
+        printf("%s ", msg);  //print debug msg as printing the linked list
+        printf("%p->", f);
+        f = f->next;
+    }
+
 }
 
 /** Find first free chunk that fits size else NULL if no chunk big enough.
@@ -205,7 +189,6 @@ void* find_next(void* p){
  */
 static Free_Header *nextfree(uint32_t size) {
     Free_Header *p = heap.freelist;
-  //  Free_Header *prev = NULL;
     /* Scan until one of:
         1. end of free list
         2. exact size match between chunk and size
@@ -219,7 +202,7 @@ static Free_Header *nextfree(uint32_t size) {
 
     Free_Header *nextchunk;
     if (p->size  == size) {      // if exact fit
-        nextchunk = p->next;     // what if nextchunk == null? run out of heap?
+        nextchunk = p->next;
         if (nextchunk != NULL) {
             nextchunk->prev = p->prev;
             if (p == heap.freelist) {
@@ -253,7 +236,6 @@ static Free_Header *nextfree(uint32_t size) {
             p->prev->next = nextchunk;
             p->next->prev = nextchunk;
         }
-        //merge if the following chunk is free
     }
     p->size = size;
     return p;

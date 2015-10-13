@@ -378,8 +378,8 @@ void long_freelist() {
 
 }
 
-
-void test_infinite_loop() {
+//skip first free chunk, which is not big enough
+void search_along_list() {
     printf("after allocation:\n");
     Busy_Header* b[4];
     for(int i = 0; i < 4; i++){
@@ -393,7 +393,46 @@ void test_infinite_loop() {
     Free_Header* f4 = find_next(b[3]);
     printf("head: %p\n", f4);
 
-/*    Heap_Info info = verify_heap();
+    Heap_Info info = verify_heap();
+    assert_equal(info.busy, 4);
+    assert_equal(info.free, 1);
+    assert_equal(info.busy_size, 1824);
+    assert_equal(info.free_size, 176);
+    assert_addr_equal(get_freelist(), f4);
+    assert_addr_equal(get_freelist()->next, NULL);
+    assert_addr_equal(get_freelist()->prev, NULL);
+
+    //after malloc, free b3, b0
+    free(b[3]);
+    free(b[0]);
+    Busy_Header *skip = malloc(600);
+
+    printf("after malloc(600)\n");
+    Free_Header *head = get_freelist();
+    print_both_ways(head);
+
+    info = verify_heap();
+    assert_equal(info.busy, 3);
+    assert_equal(info.free, 2);
+    assert_equal(info.busy_size + info.free_size, get_heap_info().heap_size);
+}
+
+//fit in the first free chunk of the list
+void exact_fit() {
+    printf("after allocation:\n");
+    Busy_Header* b[4];
+    for(int i = 0; i < 4; i++){
+        b[i] = malloc(450);
+        printf("b[%d]: %p\n", i, b[i]);
+    }
+    assert_equal(b[0]->size & SIZEMASK, request2size(450));
+    assert_equal(b[1]->size & SIZEMASK, request2size(450));
+    assert_equal(b[2]->size & SIZEMASK, request2size(450));
+    assert_equal(b[3]->size & SIZEMASK, request2size(450));
+    Free_Header* f4 = find_next(b[3]);
+    printf("head: %p\n", f4);
+
+    Heap_Info info = verify_heap();
     assert_equal(info.busy, 4);
     assert_equal(info.free, 1);
     assert_equal(info.busy_size, 1824);
@@ -416,21 +455,7 @@ void test_infinite_loop() {
     assert_addr_equal(f4->prev->prev, NULL);
     printf("after free b[2]\n");
     Free_Header *head = get_freelist();
-    Free_Header *f = head;
-    while (f->next != NULL){
-        printf("%p->", f);
-        f = f->next;
-    }
-    printf("%p\n", f);
-    while (f->prev != NULL){
-        printf("%p<-", f);
-        f = f->prev;
-    }
-    printf("%p\n", f);
-    assert_addr_equal(f, head);
-
-
-
+    print_both_ways(head);
 
 
     free(b[0]);
@@ -447,41 +472,14 @@ void test_infinite_loop() {
     assert_addr_equal(f4->prev->prev, b[0]);
     assert_addr_equal(f4->prev->prev->prev, NULL);
 
-
     printf("after free b[0]\n");
     head = get_freelist();
-     f = head;
-    while (f->next != NULL){
-        printf("%p->", f);
-        f = f->next;
-    }
-    printf("%p\n", f);
-    while (f->prev != NULL){
-        printf("%p<-", f);
-        f = f->prev;
-    }
-    printf("%p\n", f);
-    assert_addr_equal(f, head);
+    print_both_ways(head);
 
-
-    //perfectly fit the first free chunk
-*//*    Busy_Header *fit = malloc(450);
-
-
+    Busy_Header *fit = malloc(450);
     printf("after malloc(450)\n");
     head = get_freelist();
-    f = head;
-    while (f->next != NULL){
-        printf("%p->", f);
-        f = f->next;
-    }
-    printf("%p\n", f);
-    while (f->prev != NULL){
-        printf("%p<-", f);
-        f = f->prev;
-    }
-    printf("%p\n", f);
-    assert_addr_equal(f, head);
+    print_both_ways(head);
     assert_addr_equal(fit, get_heap_base());
 
     info = verify_heap();
@@ -491,30 +489,77 @@ void test_infinite_loop() {
     assert_addr_equal(get_freelist()->next, f4);
     assert_addr_equal(get_freelist()->next->next, NULL);
     assert_addr_equal(f4->prev, b[2]);
-    assert_addr_equal(f4->prev->prev, NULL);*//*
+    assert_addr_equal(f4->prev->prev, NULL);
+}
 
-    //split the first free chunk
+//split chunk
+void split_chunk(){
+    printf("after allocation:\n");
+    Busy_Header* b[4];
+    for(int i = 0; i < 4; i++){
+        b[i] = malloc(450);
+        printf("b[%d]: %p\n", i, b[i]);
+    }
+    assert_equal(b[0]->size & SIZEMASK, request2size(450));
+    assert_equal(b[1]->size & SIZEMASK, request2size(450));
+    assert_equal(b[2]->size & SIZEMASK, request2size(450));
+    assert_equal(b[3]->size & SIZEMASK, request2size(450));
+    Free_Header* f4 = find_next(b[3]);
+    printf("head: %p\n", f4);
+
+    Heap_Info info = verify_heap();
+    assert_equal(info.busy, 4);
+    assert_equal(info.free, 1);
+    assert_equal(info.busy_size, 1824);
+    assert_equal(info.free_size, 176);
+    assert_addr_equal(get_freelist(), f4);
+    assert_addr_equal(get_freelist()->next, NULL);
+    assert_addr_equal(get_freelist()->prev, NULL);
+
+    free(b[2]);
+
+    info = verify_heap();
+    assert_equal(info.busy, 3);
+    assert_equal(info.free, 2);
+    assert_equal(info.busy_size, 1368);
+    assert_equal(info.free_size, 632);
+    assert_addr_equal(get_freelist(), b[2]);
+    assert_addr_equal(get_freelist()->next, f4);
+    assert_addr_equal(get_freelist()->next->next, NULL);
+    assert_addr_equal(f4->prev, b[2]);
+    assert_addr_equal(f4->prev->prev, NULL);
+    printf("after free b[2]\n");
+    Free_Header *head = get_freelist();
+    print_both_ways(head);
+
+
+    free(b[0]);
+    info = verify_heap();
+    assert_equal(info.busy, 2);
+    assert_equal(info.free, 3);
+    assert_equal(info.busy_size, 912);
+    assert_equal(info.free_size, 1088);
+    assert_addr_equal(get_freelist(), b[0]);
+    assert_addr_equal(get_freelist()->next, b[2]);
+    assert_addr_equal(get_freelist()->next->next, f4);
+    assert_addr_equal(get_freelist()->next->next->next, NULL);
+    assert_addr_equal(f4->prev, b[2]);
+    assert_addr_equal(f4->prev->prev, b[0]);
+    assert_addr_equal(f4->prev->prev->prev, NULL);
+
+    printf("after free b[0]\n");
+    head = get_freelist();
+    print_both_ways(head);
+
     Busy_Header *split = malloc(200);
 
     printf("after malloc(200)\n");
     head = get_freelist();
-    f = head;
-    while (f->next != NULL){
-        printf("%p->", f);
-        f = f->next;
-    }
-    printf("%p\n", f);
-    while (f->prev != NULL){
-        printf("%p<-", f);
-        f = f->prev;
-    }
-    printf("%p\n", f);
-    assert_addr_equal(f, head);
+    print_both_ways(head);
 
     assert_addr_equal(split, get_heap_base());
     Free_Header *newhead = get_freelist();
     assert_addr_equal(find_next(split),newhead);
-    info = verify_heap();
     assert_addr_equal(get_freelist(), find_next(split));
     assert_addr_equal(get_freelist()->next, b[2]);
     assert_addr_equal(get_freelist()->next->next, f4);
@@ -526,17 +571,10 @@ void test_infinite_loop() {
     assert_equal(info.busy, 3);
     assert_equal(info.free, 3);
     assert_equal(info.busy_size + info.free_size, get_heap_info().heap_size); // out of heap*/
+}
 
-    //skip the first free chunks
-    //after malloc, free b3, b0
-    free(b[3]);
-    free(b[0]);
-
-    Busy_Header *skip = malloc(600);
-
-    printf("after malloc(200)\n");
-    Free_Header *head = get_freelist();
-    Free_Header *f = head;
+void print_both_ways(Free_Header *f){
+    Free_Header *head = f;
     while (f->next != NULL){
         printf("%p->", f);
         f = f->next;
@@ -548,15 +586,7 @@ void test_infinite_loop() {
     }
     printf("%p\n", f);
     assert_addr_equal(f, head);
-
-    Heap_Info info = verify_heap();
-    assert_equal(info.busy, 3);
-    assert_equal(info.free, 2);
-    assert_equal(info.busy_size + info.free_size, get_heap_info().heap_size); // out of heap
-
-
 }
-
 
 void test_core() {
 	void *heap = morecore(HEAP_SIZE);
@@ -598,5 +628,7 @@ int main(int argc, char *argv[]) {
     test(merge_with_middle);
     test(fuse_to_one);
     test(long_freelist);
-    test(test_infinite_loop);
+    test(search_along_list);
+    test(exact_fit);
+    test(split_chunk);
 }
