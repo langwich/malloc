@@ -35,6 +35,7 @@ void bitmap_release();
 
 void *bitmap_get_heap();
 int verify_bit_score_board();
+int print_profile_info();
 
 void *malloc(size_t size);
 void free(void *);

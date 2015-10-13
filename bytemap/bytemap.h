@@ -22,47 +22,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <cunit.h>
-#include <time.h>
+#ifndef MALLOC_BYTEMAP_H
+#define MALLOC_BYTEMAP_H
 
-#include "replay.h"
-#include "bitmap.h"
+#include <stddef.h>
 
-const size_t HEAP_SIZE = 1000000000; // try 1G
+#define BOUNDARY_TAG        0xBBEEEEFF
 
-static void setup()		{ bitmap_init(HEAP_SIZE); }
-static void teardown()	{
-	assert_equal(verify_bit_score_board(), 1);
-	print_profile_info();
-	bitmap_release();
-}
+void *bytemap_get_heap();
+void bytemap_init(size_t size);
+void bytemap_release();
+void *malloc(size_t);
+void free(void *);
+int verify_byte_score_board();
 
-
-
-void replay_ansic_grammar_with_dparser() {
-	int result = replay_malloc("/tmp/trace.txt");
-	assert_equal(0, result);
-}
-
-int main(int argc, char *argv[]) {
-	// TODO: currently must run from cmd-line: no way to set working dir in cmake?
-	printf("converting addresses to indexes\n");
-	system("python ../cunit/addr2index.py < ../cunit/ANSIC_MALLOC_FREE_TRACE.txt > /tmp/trace.txt");
-	printf("simulating...\n");
-
-	cunit_setup = setup;
-	cunit_teardown = teardown;
-
-	bitmap_init(HEAP_SIZE);
-	{
-		time_t start = time(NULL);
-		test(replay_ansic_grammar_with_dparser);
-		time_t stop = time(NULL);
-
-		fprintf(stderr, "simulation took %ldms\n", (stop-start));
-	}
-
-	return 0;
-}
+#endif //MALLOC_BYTEMAP_H

@@ -22,6 +22,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+/*
+ * 60s - 64s with -mpopcnt -mlzcnt turned on similar result without
+ * those intrinsics.
+ */
+
 #include <stddef.h>
 #include <morecore.h>
 #include <bitset.h>
@@ -82,14 +87,14 @@ void free(void *ptr)
 {
 	if (ptr == NULL) return;
 	U32 *boundary = (U32 *) (WORD(ptr) - 1);
-#ifdef DEBUG
 	if (BOUNDARY_TAG != boundary[0]) {
+#ifdef DEBUG
 		fprintf(stderr, "boundary tag corrupted for address %p, have you freed it before?\n", ptr);
+#endif
 		// returning here in case the free are called twice
 		// on the same memory address
 		return;
 	}
-#endif
 	U32 num_bits = boundary[1];
 	size_t start_index = WORD(ptr) - 1 - WORD(g_pheap);
 	bs_set0(&g_bset, start_index, start_index + num_bits - 1);
@@ -97,13 +102,10 @@ void free(void *ptr)
 	boundary[0] = 0;
 }
 
-#ifdef DEBUG
 void *bitmap_get_heap() {
 	return g_pheap;
 }
-#endif
 
-#ifdef DEBUG
 int verify_bit_score_board() {
 	BITCHUNK *chk = WORD(g_pheap);
 	for (size_t bit_index = 0; bit_index < g_bset.m_nbc * CHK_IN_BIT; ++bit_index) {
@@ -113,11 +115,22 @@ int verify_bit_score_board() {
 			U32 len = ((U32 *)(&chk[bit_index]))[1];
 			size_t end_index = bit_index + len - 1;
 			if (!bs_contain_ones(&g_bset, bit_index, end_index)) {
+#ifdef DEBUG
 				fprintf(stderr, "verification failed, bitmap is in wrong status.\n");
+#endif
 				return 0;
 			}
 		}
 	}
 	return 1;
 }
+
+int print_profile_info() {
+#ifdef DEBUG
+	profile_info profile = get_profile_info();
+
+	fprintf(stderr, "non_cross: %ld\nleading: %ld\ntrailing: %ld\n",
+	        profile.non_cross, profile.leading, profile.trailing);
 #endif
+	return 0;
+}

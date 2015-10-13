@@ -22,6 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 #include <stdio.h>
+#include <string.h>
 #include "cunit.h"
 
 void (*cunit_setup)()		= NULL;
@@ -57,6 +58,13 @@ void _assert_addr_not_equal(void *a, void *b, const char as[], const char bs[], 
 	}
 }
 
+void _assert_str_equal(const char *a, const char *b, size_t l, const char *as, const char *bs, const char *funcname) {
+	if ( strncmp(a, b, l) ) {
+		fprintf(stderr, "assertion failure in %s: %s == %s (%s == %s)\n", funcname, as, bs, a, b);
+		longjmp(longjmp_env, 1);
+	}
+}
+
 void cunit_test(void (*f)(), const char funcname[]) {
 	if ( cunit_setup!=NULL ) (*cunit_setup)();
 	if ( setjmp(longjmp_env)==0 ) {
@@ -68,3 +76,4 @@ void cunit_test(void (*f)(), const char funcname[]) {
 	}
 	if ( cunit_teardown!=NULL ) (*cunit_teardown)();
 }
+
