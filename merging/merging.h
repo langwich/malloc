@@ -90,7 +90,11 @@ Heap_Info get_heap_info();
 
 void *malloc(size_t);
 void free(void *);
-Busy_Header* find_next(void* p);
+void * find_next(void* p);
+void merge_on_free(Free_Header *q, Free_Header *f);
+void merge_on_malloc(Free_Header *q, Free_Header *f);
+void check_infinite_loop(Free_Header *f, char *msg);
+void print_both_ways(Free_Header *f);
 
 #endif //MALLOC_MERGING_H
 

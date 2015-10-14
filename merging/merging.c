@@ -63,6 +63,7 @@ void freelist_init(uint32_t max_heap_size) {
     heap.freelist = heap.base;
     heap.freelist->size = max_heap_size & SIZEMASK; // mask off upper bit to say free
     heap.freelist->next = NULL;
+    heap.freelist->prev = NULL;
 }
 
 void freelist_shutdown() {
@@ -77,20 +78,17 @@ void *malloc(size_t size) {
     uint32_t n = (uint32_t) size & SIZEMASK;
     n = (uint32_t) align_to_word_boundary(size_with_header(n));
     Free_Header *chunk = nextfree(n);
+    if (chunk == NULL) {
+#ifdef DEBUG
+        printf("out of heap");
+#endif
+        return NULL;
+    }
     Busy_Header *b = (Busy_Header *) chunk;
     b->size |= BUSY_BIT; // get busy! turn on busy bit at top of size field
     return b;
 }
 
-Busy_Header* find_next(void* p){
-    Busy_Header *b = (Busy_Header *) p;  // cast input pointer to busy
-    uint32_t size = b->size & SIZEMASK;
-    Busy_Header *f = (Busy_Header *) ((char *)b + size);
-    //why didn't the following commented lines work?
-    //uint64_t follower =  (((uint64_t)b ^ size) | (((uint64_t) b & size) <<1));   // find address of the following chunk
-    //Busy_Header *f = (Busy_Header *) follower;  //cast the following chunk to busy header
-    return f;
-}
 /* Free chunk p, merge with following chunk if free, and add to the head of free list */
 void free(void *p) {
     if (p == NULL) return;
@@ -109,35 +107,78 @@ void free(void *p) {
 #endif
         return;
     }
-    //check if the following chunk is free
-    Busy_Header *f = find_next(q);
-    if ( !(f->size & BUSY_BIT) ){   //if busy bit is 0, then merge
-        Free_Header *m = (Free_Header *) f;
-        q->size += m->size & SIZEMASK;
-        uint32_t new_size = q->size &SIZEMASK;
-        if (m->prev != NULL) {  // m is not the head
-            m->prev->next = m->next;  // skip m
-            q->next = heap.freelist;
-        } else{
-            q->next = m->next;
-        }
-        if (m->next != NULL) { // m is not the end
-            if (m->prev != NULL){
-                m->next->prev = m->prev;  // skip m
-            }else{
-                m->next->prev = q;
-            }
-        }
 
-    }else{
-        q->next = heap.freelist;
-    }
-    heap.freelist->prev = q;
-    q->prev = NULL;
     q->size &= SIZEMASK; // turn off busy bit
-    heap.freelist = q;
 
+    //check if the following chunk is free
+    Free_Header *f = find_next(q);
+    if ( !(f->size & BUSY_BIT) ) {   //if next chunk is free, merge
+        q->prev = NULL;  //q will be the head
+        merge_on_free(q, f);
+    }else{                //if next chunk is busy, simply add q to the head
+        q->next = heap.freelist;
+        q->prev = NULL;
+        heap.freelist->prev = q;
+/*#ifdef DEBUG
+        check_infinite_loop(q, "no merge");
+#endif*/
+    }
+    heap.freelist = q; //set to head
+}
 
+void merge_on_free(Free_Header *q, Free_Header *f){
+    q->size += f->size;
+    //f is both head and tail of the freelist
+    if(f->prev == NULL && f->next == NULL) {
+        q->next  = NULL;
+/*#ifdef DEBUG
+        check_infinite_loop(q, "merge with single node");
+#endif*/
+    }
+    //f is the head but not the tail of the freelist
+    else if (f->prev == NULL && f->next != NULL) {
+        q->next = f->next;
+        f->next->prev = q;
+/*#ifdef DEBUG
+        check_infinite_loop(q, "merge with head);
+#endif*/
+    }
+    //f is the tail but not the head of the freelist
+    else if (f->prev != NULL && f->next == NULL) {
+        q->next = heap.freelist;
+        heap.freelist->prev = q;
+        f->prev->next = NULL;
+/*#ifdef DEBUG
+        check_infinite_loop(q, "merge with tail");
+#endif*/
+    }
+    //f is neither head nor tail of the freelist
+    else {
+        q->next = heap.freelist;
+        heap.freelist->prev = q;
+        f->prev->next = f->next;
+        f->next->prev = f->prev;
+/*#ifdef DEBUG
+        check_infinite_loop(q, "merge with a node in the middle");
+#endif*/
+    }
+}
+
+//find the following chunk, regardless of busy or free
+void* find_next(void* p){
+    Busy_Header *b = (Busy_Header *) p;
+    uint32_t size = b->size & SIZEMASK;
+    Busy_Header *f = (Busy_Header *) ((char *)b + size);
+    return f;
+}
+
+//This is for debug purpose
+void check_infinite_loop(Free_Header *f, char *msg ){
+    while(f != NULL){
+        printf("%s ", msg);  //print debug msg as printing the linked list
+        printf("%p->", f);
+        f = f->next;
+    }
 
 }
 
@@ -148,44 +189,102 @@ void free(void *p) {
  */
 static Free_Header *nextfree(uint32_t size) {
     Free_Header *p = heap.freelist;
-    Free_Header *prev = NULL;
     /* Scan until one of:
         1. end of free list
         2. exact size match between chunk and size
         3. chunk size big enough to split; there is space for size +
            another Free_Header (MIN_CHUNK_SIZE) for the new free chunk.
      */
+    //search along the list for free chunks big enough
+    //merge if consecutive free chunks are found
     while (p != NULL && size != p->size && p->size < size + MIN_CHUNK_SIZE) { //not fit
-        prev = p;
+        if (!(((Free_Header *)find_next(p))->size & BUSY_BIT)){
+            // merge_on_malloc
+            Free_Header *f = (Free_Header *) find_next(p);
+            merge_on_malloc(p, f);
+            if (f == heap.freelist)  //move freelist forward if f is the head
+                heap.freelist = f->next;
+
+            if (size == p->size && p->size >= size + MIN_CHUNK_SIZE)  //re-check size after merge
+                break;
+        }
         p = p->next;
     }
+
     if (p == NULL) return p;    // no chunk big enough
 
     Free_Header *nextchunk;
-    if (p->size == size) {      // if exact fit
+    if (p->size  == size) {      // if exact fit
         nextchunk = p->next;
+        if (nextchunk != NULL) {
+            nextchunk->prev = p->prev;
+            if (p == heap.freelist) {
+                heap.freelist = nextchunk;
+            } else {
+                p->prev->next = nextchunk;
+            }
+        }else{
+            heap.freelist = NULL; //out of heap
+        }
     }
     else {                      // split p into p', q
         Free_Header *q = (Free_Header *) (((char *) p) + size);
+        q->size &= SIZEMASK; // turn off busy bit of the remainder
         q->size = p->size - size; // q is remainder of memory after allocating p'
-        q->next = p->next;
-        q->size &= SIZEMASK; // turn off busy bit
+        q->prev = p->prev;
+
         nextchunk = q;
+        if (p->prev == NULL && p->next == NULL) {
+            nextchunk->next = NULL;
+            heap.freelist = nextchunk;
+        } else if (p->prev == NULL && p->next != NULL) {
+            nextchunk->next = p->next;
+            p->next->prev = nextchunk;
+            heap.freelist = nextchunk;
+        } else if (p->prev != NULL && p->next == NULL) {
+            nextchunk->next = NULL;
+            p->prev->next = nextchunk;
+        } else {
+            nextchunk->next = p->next;
+            p->prev->next = nextchunk;
+            p->next->prev = nextchunk;
+        }
     }
-
     p->size = size;
-
-    // add nextchunk to free list
-    if (p == heap.freelist) {       // head of free list is our chunk
-        heap.freelist = nextchunk;
-        nextchunk->prev = NULL;
-    }
-    else {
-        prev->next = nextchunk;
-        nextchunk->prev = prev;
-    }
-
     return p;
+}
+
+// different from merge_on_free because p and f's positions need to be maintained
+void merge_on_malloc(Free_Header *p, Free_Header *f){
+    p->size += f->size;
+    // p and f are not next to each other in the free list
+    if(p->prev != f && p->next != f) {
+        if (f->prev != NULL)
+            f->prev->next = f->next;
+        if (f->next != NULL)
+            f->next->prev = f->prev;
+/*#ifdef DEBUG
+        check_infinite_loop(p, "merge with non-neighbor");
+#endif*/
+    }
+        // p->next = f
+    else if (p->next == f) {
+        p->next = f->next;
+        if (f->next != NULL)
+            f->next->prev = p;
+/*#ifdef DEBUG
+        check_infinite_loop(p, "merge with next");
+#endif*/
+    }
+        // p->prev = f
+    else if (p->prev == f) {
+        p->prev = f->prev;
+        if (f->prev != NULL)
+            f->prev->next = p;
+/*#ifdef DEBUG
+        check_infinite_loop(p, "merge with prev");
+#endif*/
+    }
 }
 
 Free_Header *get_freelist() { return heap.freelist; }
